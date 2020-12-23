@@ -11,7 +11,7 @@ class TagCloud extends Component {
                 <div className="card-content" id="tags">
                     <h3 className="menu-label">标签云</h3>
                     {tags.map(tag => {
-                        return <a href={tag.url}>{tag.name}({tag.count}) </a>;
+                        return <a href={tag.url}>{tag.name}<span class="tag-cloud-count">({tag.count}) </span></a>;
                     })}
                 </div>
                 <script src="/js/tagcloud.js"></script>
