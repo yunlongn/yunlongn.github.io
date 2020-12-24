@@ -27,7 +27,7 @@ class Footer extends Component {
         }
 
         return <footer class="footer">
-            <div className="footer-image"></div>
+            <div class="footer-image"><img src="/img/o_cnblogs_footer.png" width="60%"  /></div>
             <div class="container">
                 <div class="level">
                     <div class="level-start">
