@@ -4,7 +4,6 @@ class TagCloud extends Component {
     render() {
         const { tags } = this.props;
         const name = "tagcloud";
-        console.log(tags)
         return <Fragment>
             <div className="card widget" data-type="tagscloud"
                  style="transition: opacity 0.3s ease-out 0s, transform 0.3s ease-out 0s; opacity: 1; transform-origin: center top;">
