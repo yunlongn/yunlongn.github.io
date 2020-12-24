@@ -16,7 +16,7 @@ class TagCloud extends Component {
                         var b=Math.floor(Math.random()*75+80);
                         var z=Math.floor(Math.random()*10 + 13);
                         var color = "color:" + "rgb("+r+","+g+","+b+");font-size:" + z + "px";
-                        return <a href={tag.url}>{tag.name}<span class="tag-cloud-count" style={color} >({tag.count}) </span></a>;
+                        return <a href={tag.url} style={color}>{tag.name}<span class="tag-cloud-count"  >({tag.count}) </span></a>;
                     })}
                 </div>
             </div>
