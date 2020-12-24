@@ -2,9 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="935aa260-a38f-4517-8ca7-2a76c3fa2675" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/themes/icarus/layout/widget/tagcloud.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/themes/icarus/layout/widget/tagcloud.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app2.js" beforeDir="false" afterPath="$PROJECT_DIR$/app2.js" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -83,7 +82,7 @@
       <workItem from="1608730054642" duration="599000" />
       <workItem from="1608730669440" duration="227000" />
       <workItem from="1608730916796" duration="1613000" />
-      <workItem from="1608771380865" duration="1810000" />
+      <workItem from="1608771380865" duration="2795000" />
     </task>
     <task id="LOCAL-00001" summary="#">
       <created>1608730160730</created>
@@ -155,7 +154,28 @@
       <option name="project" value="LOCAL" />
       <updated>1608771732937</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="#">
+      <created>1608779483641</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1608779483641</updated>
+    </task>
+    <task id="LOCAL-00012" summary="#">
+      <created>1608779546553</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1608779546553</updated>
+    </task>
+    <task id="LOCAL-00013" summary="#">
+      <created>1608779590745</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1608779590745</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
