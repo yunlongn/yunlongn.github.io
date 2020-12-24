@@ -11,14 +11,19 @@ class TagCloud extends Component {
                 <div className="card-content" id="tags">
                     <h3 className="menu-label">标签云</h3>
                     {tags.map(tag => {
-                        return <a href={tag.url}>{tag.name}<span class="tag-cloud-count">({tag.count}) </span></a>;
+                        var r=Math.floor(Math.random()*75+130);
+                        var g=Math.floor(Math.random()*75+100);
+                        var b=Math.floor(Math.random()*75+80);
+                        var z=Math.floor(Math.random()*10 + 13);
+                        var color = "color:" + "rgb("+r+","+g+","+b+");font-size:" + z + "px";
+                        return <a href={tag.url}>{tag.name}<span class="tag-cloud-count" style={color} >({tag.count}) </span></a>;
                     })}
                 </div>
-                <script src="/js/tagcloud.js"></script>
             </div>
         </Fragment>;
     }
 }
+
 TagCloud.Cacheable = cacheComponent(TagCloud, 'widget.tagcloud', function (props) {
     var helper = props.helper,
         _props$orderBy = props.orderBy,
