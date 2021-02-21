@@ -1,6 +1,6 @@
 var spawn = require('child_process').spawn;
 
-free = spawn('hexo', ['server', '-d' ]);/* 其实就是等于执行hexo server -p 4000*/
+free = spawn('hexo', ['server', '-d', "-p", "8080"]);/* 其实就是等于执行hexo server -p 4000*/
 
 free.stdout.on('data', function (data) {
 
