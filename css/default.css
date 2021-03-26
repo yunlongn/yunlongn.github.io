@@ -10745,6 +10745,7 @@ body > .section {
   top: 0;
 }
 .image .avatar {
+  border-radius: 50%;
   height: 100%;
   object-fit: cover;
 }
