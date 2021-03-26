@@ -205,9 +205,9 @@ widgets:
         # Author name
         author: 云扬四海
         # Author title
-        author_title: 云扬四海
+        author_title: 
         # Author's current location
-        location: 广东 河源
+        location: 
         # URL or path to the avatar image
         avatar: 
         # Whether show the rounded avatar image
