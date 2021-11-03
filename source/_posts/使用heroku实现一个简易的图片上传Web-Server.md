@@ -1,4 +1,4 @@
-title: 实现一个免费的图片上传Web Server（带域名，科学上网）
+title: 实现一个免费的图片上传Web Server
 author: RolandLee
 tags:
   - heroku
@@ -260,7 +260,7 @@ upload.addEventListener('submit', (e) => {
 
 #### 六. 将代码部署到Heroku
 
-- Heroku是一个支持多种编程语言的云平台即服务。最重要的它是免费的。这是他的官方网站Heroku，注意不科学上网的话，可会超级慢或者进不去。而且科学上网要全局模式..
+- Heroku是一个支持多种编程语言的云平台即服务。最重要的它是免费的。这是他的官方网站Heroku，注意不XX上网的话，可会超级慢或者进不去。而且XX上网要全局模式..
 
 
  1. 在部署的时候，有三个选择，我选择选择GitHub
@@ -291,4 +291,4 @@ upload.addEventListener('submit', (e) => {
 用这个域名试一试
 ![](https://images-roland.oss-cn-shenzhen.aliyuncs.com//blog/20190411172459.png)
 
-大功告成。可惜的就是heroku得科学上网才行。
+大功告成。可惜的就是heroku得上网才行。
