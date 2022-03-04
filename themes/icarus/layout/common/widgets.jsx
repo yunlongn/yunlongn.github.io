@@ -33,7 +33,6 @@ function getColumnCount(widgets) {
 function getColumnSizeClass(columnCount) {
     switch (columnCount) {
         case 2:
-            return 'is-4-tablet is-4-desktop is-4-widescreen';
         case 3:
             return 'is-4-tablet is-4-desktop is-3-widescreen';
     }
@@ -66,7 +65,6 @@ class Widgets extends Component {
         if (!widgets.length) {
             return null;
         }
-
         return <div class={classname({
             'column': true,
             ['column-' + position]: true,

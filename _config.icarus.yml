@@ -245,11 +245,12 @@ widgets:
         # Maximum level of headings to show (1-6)
         depth: 3
     # Recommendation links widget configurations
-    -
-        # Widget name
-        type: archives
-        # Where should the widget be placed, left or right
-        position: left
+      # 左边归档分类
+#    -
+#        # Widget name
+#        type: archives
+#        # Where should the widget be placed, left or right
+#        position: left
     -
         # Widget name
         type: categories
