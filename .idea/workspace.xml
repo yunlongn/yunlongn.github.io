@@ -4,18 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="935aa260-a38f-4517-8ca7-2a76c3fa2675" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/source/yun/fireworks/.gitattributes" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/source/yun/fireworks/favicon.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/source/yun/fireworks/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/source/yun/fireworks/js/MyMath.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/source/yun/fireworks/js/Stage.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/source/yun/fireworks/js/fscreen.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/source/yun/fireworks/js/script.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/source/yun/fireworks/style.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/_config.icarus.yml" beforeDir="false" afterPath="$PROJECT_DIR$/_config.icarus.yml" afterDir="false" />
-    </list>
+    <list default="true" id="935aa260-a38f-4517-8ca7-2a76c3fa2675" name="Default Changelist" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -44,12 +33,6 @@
   <component name="GoLibraries">
     <option name="indexEntireGoPath" value="true" />
   </component>
-  <component name="JsFlowSettings">
-    <service-enabled>true</service-enabled>
-    <exe-path />
-    <other-services-enabled>true</other-services-enabled>
-    <auto-save>true</auto-save>
-  </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
@@ -65,9 +48,14 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.go.formatter.settings.were.checked": "true",
     "RunOnceActivity.go.migrated.go.modules.settings": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "WebServerToolWindowFactoryState": "false",
     "go.import.settings.migrated": "true",
     "last_opened_file_path": "O:/yunlongn/source/yun",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -108,7 +96,7 @@
       <workItem from="1649561896785" duration="3141000" />
       <workItem from="1649941516240" duration="610000" />
       <workItem from="1659777800014" duration="1045000" />
-      <workItem from="1672932840917" duration="31000" />
+      <workItem from="1672932840917" duration="464000" />
     </task>
     <task id="LOCAL-00001" summary="#">
       <created>1608730160730</created>
@@ -222,7 +210,14 @@
       <option name="project" value="LOCAL" />
       <updated>1659778555114</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="#add">
+      <created>1672932981371</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1672932981371</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
