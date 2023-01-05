@@ -64,8 +64,8 @@ ignore: null
 theme: icarus
 deploy:
   type: git
-  repo: 'git@github.com:yunlongn/yunlongn.gihub.io.git'
-#  repo: 'git@gitee.com:yunlongn/yunlongn.git'
+#  repo: 'git@github.com:yunlongn/yunlongn.gihub.io.git'
+  repo: 'git@gitee.com:yunlongn/yunlongn.git'
   branch: master
 admin:
   deployCommand: './hexo-publish.sh'
