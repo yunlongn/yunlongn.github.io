@@ -6,7 +6,7 @@ author: yunlongn
 language: zh-CN
 timezone: null
 url: 'http://ityouknow.cn'
-root: /
+root: /public
 permalink: ':year/:month/:day/:title/'
 permalink_defaults: null
 pretty_urls:
