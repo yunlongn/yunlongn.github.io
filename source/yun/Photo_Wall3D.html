@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>COSMIC STREAM | AUTO-PILOT</title>
+    <style>
+        /* --- 基础样式 --- */
+        body {
+            margin: 0;
+            background-color: #000;
+            color: #fff;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* --- 菜单样式 --- */
+        #menu {
+            position: absolute;
+            bottom: 40px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            pointer-events: none;
+            opacity: 0;
+            animation: fadeIn 2s ease-out 0.5s forwards;
+        }
+
+        @keyframes fadeIn { to { opacity: 1; } }
+
+        .btn {
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.7);
+            padding: 10px 24px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 2px;
+            border-radius: 30px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            transform: scale(1.05);
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        }
+
+        .btn.active {
+            background: rgba(0, 255, 255, 0.1);
+            border-color: #00ffff;
+            color: #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.15);
+        }
+
+        /* --- 开关样式 --- */
+        .toggle-wrapper {
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 6px 16px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-left: 15px;
+        }
+
+        .toggle-label { font-size: 11px; letter-spacing: 1px; margin-right: 8px; color: #888; text-transform: uppercase; }
+        .switch { position: relative; display: inline-block; width: 36px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: #888; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #003333; border: 1px solid #00ffff; }
+        input:checked + .slider:before { transform: translateX(18px); background-color: #00ffff; box-shadow: 0 0 10px #00ffff; }
+
+        /* 标题 */
+        #title {
+            position: absolute;
+            top: 40px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0;
+            animation: fadeIn 3s ease-out forwards;
+        }
+        h1 {
+            font-weight: 200;
+            letter-spacing: 12px;
+            font-size: 18px;
+            color: #fff;
+            margin: 0;
+            text-shadow: 0 0 15px rgba(0,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+
+<div id="title">
+    <h1>COSMIC STREAM</h1>
+</div>
+
+<div id="container"></div>
+
+<div id="menu">
+    <button id="table" class="btn">矩阵 GRID</button>
+    <button id="sphere" class="btn">星球 SPHERE</button>
+    <button id="helix" class="btn active">螺旋 HELIX</button>
+    <button id="grid" class="btn">混沌 CHAOS</button>
+
+    <div class="toggle-wrapper">
+        <span class="toggle-label">Auto Load</span>
+        <label class="switch">
+            <input type="checkbox" id="infiniteToggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+</div>
+
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.155.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.155.0/examples/jsm/"
+        }
+    }
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    let camera, scene, renderer, controls;
+    let starSystem;
+    let raycaster, mouse;
+
+    const objects = [];
+    const targets = { table: [], sphere: [], helix: [], grid: [] };
+    let currentLayout = 'helix';
+    let totalImages = 0;
+
+    // --- 状态控制 ---
+    let isInfiniteActive = false;
+    let autoLoadInterval = null; // 定时器句柄
+
+    init();
+    animate();
+
+    function init() {
+        const container = document.getElementById('container');
+
+        // 1. 相机
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
+        camera.position.z = 2500;
+
+        // 2. 场景
+        scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.00025);
+
+        createStarField();
+
+        // 3. 渲染器
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        // 4. 控制器
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.8;
+
+        // 5. 交互事件
+        raycaster = new THREE.Raycaster();
+        mouse = new THREE.Vector2();
+        window.addEventListener('resize', onWindowResize);
+        window.addEventListener('click', onMouseClick);
+
+        // 6. 初始化菜单与本地存储
+        initMenuSystem();
+
+        // 7. 初始加载
+        addImages(40);
+    }
+
+    // --- 菜单与逻辑系统 ---
+    function initMenuSystem() {
+        const buttons = {
+            table: document.getElementById('table'),
+            sphere: document.getElementById('sphere'),
+            helix: document.getElementById('helix'),
+            grid: document.getElementById('grid')
+        };
+
+        const updateActiveBtn = (id) => {
+            Object.values(buttons).forEach(b => b.classList.remove('active'));
+            buttons[id].classList.add('active');
+            currentLayout = id;
+        };
+
+        Object.keys(buttons).forEach(key => {
+            buttons[key].addEventListener('click', () => {
+                transform(targets[key], 1500);
+                updateActiveBtn(key);
+                resetCamera();
+            });
+        });
+
+        // --- 自动加载控制逻辑 ---
+        const toggleInput = document.getElementById('infiniteToggle');
+
+        // 读取本地缓存
+        const savedState = localStorage.getItem('cosmic_infinite_mode');
+
+        // 默认逻辑：如果没存过，默认开启(true)，存过则读取
+        if (savedState === null) {
+            isInfiniteActive = true;
+        } else {
+            isInfiniteActive = (savedState === 'true');
+        }
+
+        // 同步UI和状态
+        toggleInput.checked = isInfiniteActive;
+        manageAutoLoader(); // 根据状态启动或停止定时器
+
+        toggleInput.addEventListener('change', (e) => {
+            isInfiniteActive = e.target.checked;
+            localStorage.setItem('cosmic_infinite_mode', isInfiniteActive);
+            manageAutoLoader(); // 状态改变时更新定时器
+        });
+    }
+
+    // --- 核心：定时器管理 ---
+    function manageAutoLoader() {
+        // 先清除旧的，防止叠加
+        if (autoLoadInterval) clearInterval(autoLoadInterval);
+
+        if (isInfiniteActive) {
+            // 每 4 秒自动加载 5 张
+            autoLoadInterval = setInterval(() => {
+                addImages(5);
+            }, 4000);
+        }
+    }
+
+    function addImages(count) {
+        const geometry = new THREE.PlaneGeometry(140, 100);
+        const loader = new THREE.TextureLoader();
+        const startIndex = totalImages;
+
+        for (let i = 0; i < count; i++) {
+            const actualIndex = startIndex + i;
+            // 随机参数
+            const url = `https://picsum.photos/seed/${actualIndex + performance.now()}/300/200`;
+
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0 // 初始不可见
+            });
+
+            const object = new THREE.Mesh(geometry, material);
+            object.position.x = Math.random() * 4000 - 2000;
+            object.position.y = Math.random() * 4000 - 2000;
+            object.position.z = Math.random() * 4000 - 2000;
+
+            const borderGeo = new THREE.EdgesGeometry(geometry);
+            const borderMat = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.1 });
+            const border = new THREE.LineSegments(borderGeo, borderMat);
+            object.add(border);
+
+            object.userData = { isGalleryItem: true, id: actualIndex };
+            scene.add(object);
+            objects.push(object);
+
+            calculateTargetsForObject(actualIndex, objects.length - 1);
+
+            // 飞入位置
+            const target = targets[currentLayout][objects.length - 1];
+            if(target) {
+                new TWEEN.Tween(object.position)
+                    .to({ x: target.position.x, y: target.position.y, z: target.position.z }, 2000)
+                    .easing(TWEEN.Easing.Exponential.Out).start();
+                new TWEEN.Tween(object.rotation)
+                    .to({ x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, 2000)
+                    .easing(TWEEN.Easing.Exponential.Out).start();
+            }
+
+            // 静默加载纹理
+            loader.load(url, (texture) => {
+                material.map = texture;
+                material.needsUpdate = true;
+                new TWEEN.Tween(material).to({ opacity: 0.85 }, 1200).start();
+            });
+        }
+        totalImages += count;
+    }
+
+    // --- 点击交互 ---
+    function onMouseClick(event) {
+        if (event.target.closest('#menu')) return;
+
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(objects);
+
+        if (intersects.length > 0) {
+            // 1. 聚焦
+            focusOnObject(intersects[0].object);
+
+            // 2. 点击触发额外加载 (如果是开启状态)
+            if (isInfiniteActive) {
+                // 点击时额外来一批，增加互动爽感
+                addImages(10);
+            }
+        } else {
+            resetCamera();
+        }
+    }
+
+    function focusOnObject(targetObject) {
+        controls.autoRotate = false;
+
+        const targetPos = new THREE.Vector3();
+        targetObject.getWorldPosition(targetPos);
+        const objectNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(targetObject.quaternion);
+        const objectUp = new THREE.Vector3(0, 1, 0).applyQuaternion(targetObject.quaternion);
+
+        const newCamPos = targetPos.clone().add(objectNormal.multiplyScalar(350));
+
+        new TWEEN.Tween(camera.position).to({ x: newCamPos.x, y: newCamPos.y, z: newCamPos.z }, 1200).easing(TWEEN.Easing.Cubic.Out).start();
+        new TWEEN.Tween(controls.target).to({ x: targetPos.x, y: targetPos.y, z: targetPos.z }, 1200).easing(TWEEN.Easing.Cubic.Out).start();
+        new TWEEN.Tween(camera.up).to({ x: objectUp.x, y: objectUp.y, z: objectUp.z }, 1000).easing(TWEEN.Easing.Cubic.Out).onUpdate(() => { camera.updateProjectionMatrix(); }).start();
+    }
+
+    function resetCamera() {
+        const resetPos = new THREE.Vector3(0, 0, 2500);
+        new TWEEN.Tween(camera.position).to({ x: resetPos.x, y: resetPos.y, z: resetPos.z }, 1500).easing(TWEEN.Easing.Exponential.Out).start();
+        new TWEEN.Tween(controls.target).to({ x: 0, y: 0, z: 0 }, 1500).easing(TWEEN.Easing.Exponential.Out).start();
+        new TWEEN.Tween(camera.up).to({ x: 0, y: 1, z: 0 }, 1500).easing(TWEEN.Easing.Exponential.Out).start();
+        setTimeout(() => { controls.autoRotate = true; }, 1500);
+    }
+
+    function calculateTargetsForObject(i, arrayIndex) {
+        // Table
+        const objectTable = new THREE.Object3D();
+        objectTable.position.x = ((i % 10) * 160) - 700;
+        objectTable.position.y = -(Math.floor(i / 10) * 120) + 600;
+        objectTable.position.z = -Math.floor(i / 100) * 1000;
+        targets.table[arrayIndex] = objectTable;
+
+        // Sphere
+        const objectSphere = new THREE.Object3D();
+        const vector = new THREE.Vector3();
+        const layer = Math.floor(i / 150);
+        const radius = 800 + (layer * 400);
+        const phi = Math.acos(-1 + (2 * (i % 150)) / 150);
+        const theta = Math.sqrt(150 * Math.PI) * phi;
+        objectSphere.position.setFromSphericalCoords(radius, phi, theta);
+        vector.copy(objectSphere.position).multiplyScalar(2);
+        objectSphere.lookAt(vector);
+        targets.sphere[arrayIndex] = objectSphere;
+
+        // Helix
+        const objectHelix = new THREE.Object3D();
+        const hTheta = i * 0.175 + Math.PI;
+        const hY = -(i * 12) + 600;
+        objectHelix.position.setFromCylindricalCoords(1000, hTheta, hY);
+        vector.x = objectHelix.position.x * 2; vector.y = objectHelix.position.y; vector.z = objectHelix.position.z * 2;
+        objectHelix.lookAt(vector);
+        targets.helix[arrayIndex] = objectHelix;
+
+        // Grid
+        const objectGrid = new THREE.Object3D();
+        objectGrid.position.x = Math.random() * 5000 - 2500;
+        objectGrid.position.y = Math.random() * 5000 - 2500;
+        objectGrid.position.z = Math.random() * 5000 - 2500;
+        objectGrid.rotation.set(Math.random()*6, Math.random()*6, Math.random()*6);
+        targets.grid[arrayIndex] = objectGrid;
+    }
+
+    function createStarField() {
+        const geometry = new THREE.BufferGeometry();
+        const count = 4000;
+        const positions = new Float32Array(count * 3);
+        const colors = new Float32Array(count * 3);
+        for (let i = 0; i < count * 3; i+=3) {
+            positions[i] = (Math.random() - 0.5) * 6000;
+            positions[i+1] = (Math.random() - 0.5) * 6000;
+            positions[i+2] = (Math.random() - 0.5) * 6000;
+            if(Math.random() > 0.8) { colors[i]=0; colors[i+1]=1; colors[i+2]=1; }
+            else { colors[i]=0.8; colors[i+1]=0.2; colors[i+2]=0.8; }
+        }
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        const material = new THREE.PointsMaterial({ size: 3, vertexColors: true, transparent: true, opacity: 0.8, sizeAttenuation: true });
+        starSystem = new THREE.Points(geometry, material);
+        scene.add(starSystem);
+    }
+
+    function transform(targets, duration) {
+        TWEEN.removeAll();
+        for (let i = 0; i < objects.length; i++) {
+            const object = objects[i];
+            const target = targets[i];
+            if (!target) continue;
+            new TWEEN.Tween(object.position).to({ x: target.position.x, y: target.position.y, z: target.position.z }, Math.random() * duration + duration).easing(TWEEN.Easing.Exponential.InOut).start();
+            new TWEEN.Tween(object.rotation).to({ x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration).easing(TWEEN.Easing.Exponential.InOut).start();
+        }
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        TWEEN.update();
+        controls.update();
+        if(starSystem) starSystem.rotation.y += 0.0003;
+        renderer.render(scene, camera);
+    }
+</script>
+</body>
+</html>
