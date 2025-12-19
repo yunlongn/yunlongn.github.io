@@ -6,9 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="935aa260-a38f-4517-8ca7-2a76c3fa2675" name="Default Changelist" comment="add .nojekyll">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/yunlongn.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/yunlongn.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/_config.icarus.yml" beforeDir="false" afterPath="$PROJECT_DIR$/_config.icarus.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/source/yun/Photo_Wall3D.html" beforeDir="false" afterPath="$PROJECT_DIR$/source/yun/Photo_Wall3D.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -141,7 +139,7 @@
       <workItem from="1659777800014" duration="1045000" />
       <workItem from="1672932840917" duration="909000" />
       <workItem from="1766127041193" duration="875000" />
-      <workItem from="1766134530011" duration="2253000" />
+      <workItem from="1766134530011" duration="2861000" />
     </task>
     <task id="LOCAL-00001" summary="#">
       <created>1608730160730</created>
