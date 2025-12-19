@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>MySQL十八：写语句的执行过程 - 云扬四海</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="云扬四海"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="云扬四海"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta description="当我们需要修改一个记录时，数据库会先根据条件找到要修改的数据，然后执行修改写入操作，因此我们再分析写操作的执行过程时，其实是包含读语句的执行过程的。 一、读语句的执行过程"><meta property="og:type" content="blog"><meta property="og:title" content="MySQL十八：写语句的执行过程"><meta property="og:url" content="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E5%85%AB%EF%BC%9A%E5%86%99%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B/"><meta property="og:site_name" content="云扬四海"><meta property="og:description" content="当我们需要修改一个记录时，数据库会先根据条件找到要修改的数据，然后执行修改写入操作，因此我们再分析写操作的执行过程时，其实是包含读语句的执行过程的。 一、读语句的执行过程"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061132608.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061132497.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061132671.png"><meta property="article:published_time" content="2021-08-06T08:18:00.000Z"><meta property="article:modified_time" content="2025-12-19T06:50:33.438Z"><meta property="article:author" content="yunlongn"><meta property="article:tag" content="Mysql"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061132608.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E5%85%AB%EF%BC%9A%E5%86%99%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B/"},"headline":"云扬四海","image":["https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061132608.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061132497.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061132671.png"],"datePublished":"2021-08-06T08:18:00.000Z","dateModified":"2025-12-19T06:50:33.438Z","author":{"@type":"Person","name":"yunlongn"},"description":"当我们需要修改一个记录时，数据库会先根据条件找到要修改的数据，然后执行修改写入操作，因此我们再分析写操作的执行过程时，其实是包含读语句的执行过程的。 一、读语句的执行过程"}</script><link rel="canonical" href="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E5%85%AB%EF%BC%9A%E5%86%99%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.8.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css"><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script><!--!--><!--!--><meta name="generator" content="Hexo 5.4.2"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/">云扬四海</a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">首页</a><a class="navbar-item" href="/archives">列表</a><a class="navbar-item" href="/categories">类别</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a><a class="navbar-item" href="/yun/fireworks/index.html">fireworks</a><a class="navbar-item" href="/yun/Photo_Wall3D.html">photoWall3D</a><a class="navbar-item" href="/yun/sheep.html">sheep</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-9-tablet is-9-desktop is-9-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2021-08-06T08:18:00.000Z" title="2021-08-06T08:18:00.000Z">2021-08-06</time>发表</span><span class="level-item"><time dateTime="2025-12-19T06:50:33.438Z" title="2025-12-19T06:50:33.438Z">2025-12-19</time>更新</span><span class="level-item"> yunlongn </span><span class="level-item"><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a><span> / </span><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Mysql/">Mysql</a></span><span class="level-item">25 分钟读完 (大约3785个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">MySQL十八：写语句的执行过程</h1><div class="content"><p>当我们需要修改一个记录时，数据库会先根据条件找到要修改的数据，然后执行修改写入操作，因此我们再分析写操作的执行过程时，其实是包含读语句的执行过程的。</p>
+<h2 id="一、读语句的执行过程"><a href="#一、读语句的执行过程" class="headerlink" title="一、读语句的执行过程"></a><strong>一、读语句的执行过程</strong></h2><span id="more"></span>
+<p>在之前<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485539&idx=1&sn=9da65a1a28b008d86dc8cf352737476f&scene=21#wechat_redirect">《MySQL运行机制》</a>文中，详细说明了一个查询语句的执行的过程，查询sql的执行过程基本上分为六步:</p>
+<ul>
+<li><strong>「建立连接（Connectors&amp;Connection Pool）」</strong></li>
+<li><strong>「查询缓存（Cache&amp;Buffer）」</strong></li>
+<li><strong>「解析器（Parser）」</strong></li>
+<li><strong>「预处理器（preprocessor）」</strong></li>
+<li><strong>「查询优化器（Optimizer）」</strong></li>
+<li><strong>「操作引擎执行 SQL 语句」</strong></li>
+</ul>
+<p>通过以上六步即可在数据库中查询到相应的数据，针对每个步骤的过程，这之前的文中有详细说明，这里不再赘述。</p>
+<h3 id="1-1-查询缓存弊大于利"><a href="#1-1-查询缓存弊大于利" class="headerlink" title="1.1 查询缓存弊大于利"></a>1.1 查询缓存弊大于利</h3><p><strong>「查询缓存分为Cache和Buffer，两者都是缓存，但是作用不一样：」</strong></p>
+<ul>
+<li><p>Cache：缓存读取的数据</p>
+<p><strong>「cache是从磁盘读取数据然后存起来方便以后使用。实现数据的重复使用，减少读取的磁盘IO」</strong>。</p>
+<blockquote>
+<p>将硬盘中的数据读取出来放在内存的缓存区中，这样以后再次访问同一个资源，速度会快很多。</p>
+</blockquote>
+</li>
+<li><p>Buffer：缓冲修改过的数据</p>
+<p><strong>「buffer是为了提高内存和硬盘的IO设计的，写入到磁盘的数据会先写入buffer中，然后一起刷盘」</strong>。</p>
+<blockquote>
+<p>从内存中将数据往硬盘中写入，并不是直接写入，而是缓冲到一定大小之后刷入硬盘中。</p>
+</blockquote>
+</li>
+</ul>
+<p><strong>「两者共性都属于内存，数据都是临时的，一旦关机数据都会丢失」</strong>。</p>
+<p>查询缓存的弊端在<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485539&idx=1&sn=9da65a1a28b008d86dc8cf352737476f&scene=21#wechat_redirect">《MySQL运行机制》</a>文中未曾说明，这里做一下补充说明：</p>
+<p><strong>「大多数情况下一般不要使用查询缓存，因为查询缓存往往弊大于利」</strong>。</p>
+<ul>
+<li><strong>「当对一个表进行更新操作时，这个表上所有的查询缓存都会被清空」</strong>。所以当对更新比较频繁的表使用查询缓存的时候，命中率会非常低，得不偿失。一般我们可以对静态表使用查询缓存（比如字典表，配置表）。也是基于此，MySQL才提供了上述开启查询缓存的方式，直接在SQL语句中指定，按需使用。</li>
+<li><strong>「MySQL 8.0版本已经没有查询缓存这个功能了，直接将查询缓存整个模块删掉了」</strong>。</li>
+</ul>
+<h2 id="二、写语句的执行过程"><a href="#二、写语句的执行过程" class="headerlink" title="二、写语句的执行过程"></a><strong>二、写语句的执行过程</strong></h2><h3 id="2-1写语句是怎么执行的"><a href="#2-1写语句是怎么执行的" class="headerlink" title="2.1写语句是怎么执行的"></a>2.1写语句是怎么执行的</h3><p>前面说到，更新操作时，也会走先查询，所以它的执行流程也是大同小异的。</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061132608.png" alt="图片"></p>
+<p>还是通过这张图，按照【读语句的执行过程】的六个步骤去执行，不同的是：</p>
+<ul>
+<li><p><strong>「分析器」</strong></p>
+<p>通过【<strong>「词法分析」</strong>】和【<strong>「语法解析」</strong>】确定当前的SQL语句是一条更新语句。</p>
+</li>
+<li><p><strong>「优化器」</strong></p>
+<p>确定索引，执行计划</p>
+</li>
+<li><p><strong>「执行器」</strong></p>
+<p>内存中修改数据，调用存储引擎的修改接口，最终修改数据</p>
+</li>
+</ul>
+<p><strong>「以上就是更新语句的执行过程，看起来似乎跟查询语句没啥区别，只不过一个查询语句，一个是更新语句，两者调用的存储引擎的接口不一样而已。事实上也的确如此，它们很类似，但是更新语句会比查询语句多两个步骤」</strong>。</p>
+<h3 id="2-2写语句比读语句多了什么"><a href="#2-2写语句比读语句多了什么" class="headerlink" title="2.2写语句比读语句多了什么"></a>2.2写语句比读语句多了什么</h3><p>上面说到更新语句会比查询语句多两个步骤，具体是多了什么呢？我们假设一下</p>
+<p>按照上述的方式进行更新，似乎是没有问题的，数据也确实能写到数据库中，最终通过存储引擎写入磁盘中。但是有一个问题，我们知道<strong>「磁盘是很慢的，而我们的程序操作内存是需要IO操作的，当更新比较频繁的时候，磁盘IO必然会很慢，会降低数据库的性能，高并发下，很容易就会导致数据库宕机」</strong>。</p>
+<p>既然有这种隐患，那么MYSQL不可能没有解决的，这里就涉及到了MySQL中两个非常重要的日志模块：</p>
+<ul>
+<li>Undo log (撤销日志)</li>
+<li>Redo log（重做日志）</li>
+<li>Binlog（归档日志）</li>
+</ul>
+<ol>
+<li>MySQL正式利用这两个日志来解决上述频繁IO问题的。也就是经常说的<strong>「预写式日志记录（Write-Ahead Logging），即WAL技术，核心就是先写日志，再写磁盘」</strong>。</li>
+<li>它很类似MQ【异步、削峰】的特性，在更新的时候，先写日志，不更新磁盘（即异步刷盘），在数据库不繁忙的时候（特定的时间点或者时机）再将日志记录更新磁盘（即削峰）</li>
+</ol>
+<p>关于Undo log / Redo log与Binlog在之前的<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485806&idx=1&sn=ed2de04421546b4187a8bbf9da821648&scene=21#wechat_redirect">《一文详解六大日志》</a>中也有详细的介绍，这里就不再具体描述，只重点说一下在更新操作的中使用过程。</p>
+<blockquote>
+<p>如果对Undo log / Redo log与Binlog不是很熟悉的话，可以看一下之前的文章，以作参考</p>
+</blockquote>
+<h3 id="2-3-Undo-log（撤销日志）"><a href="#2-3-Undo-log（撤销日志）" class="headerlink" title="2.3 Undo log（撤销日志）"></a>2.3 Undo log（撤销日志）</h3><p><strong>「撤消日志是在事务开始之前保存的被修改数据的备份，由InnoDB存储引擎实现」</strong>。</p>
+<p>主要作用：</p>
+<ul>
+<li><strong>「用于回滚事务」</strong>，直接从undo日志中取到原始值</li>
+<li><strong>「MVCC机制的实现」</strong>：对不同隔离级别下事物能读取到的数据</li>
+</ul>
+<p>MVCC机制的实现原理在之前的<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485973&idx=1&sn=5bf8d02d361bc36d32472aa5f2071e8e&scene=21#wechat_redirect">《读懂MVCC多版本并发控制》</a> 中已经详细描述，感兴趣的可以参考看一下。</p>
+<h3 id="2-3-Redo-log（重做日志）"><a href="#2-3-Redo-log（重做日志）" class="headerlink" title="2.3 Redo log（重做日志）"></a>2.3 Redo log（重做日志）</h3><p><strong>「当执行一条更新语句的时候，InnoDB引擎会先把记录写到redo log里，并更新内存，到此更新操作就完成了，此时数据并没有写入磁盘，InnoDB会在特定的时机将记录写入磁盘中」</strong>。</p>
+<p>我们知道<strong>「InnoDB的redo log是固定大小的，所以为了避免在刷盘之前redo log被写满，所以redo log采用的是循环写的方式」</strong>，如下：</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061132497.png" alt="图片"></p>
+<ul>
+<li><code>write pos</code> ：表示 <code>redo log</code> 当前记录的位置，一边写一边后移</li>
+<li><code>check point</code> ：表示 <strong>「数据页更改记录」</strong> 刷盘后对应擦除的位置。</li>
+</ul>
+<p><code>write pos</code> 到 <code>check point</code> 之间的部分是 <code>redo log</code> 空着的部分，用于记录新的记录；</p>
+<p><code>check point</code> 到 <code>write pos</code> 之间是 <code>redo log</code> 待落盘的数据页更改记录。</p>
+<p>当 <code>write pos</code>追上<code>check point</code> 时，会先推动 <code>check point</code> 向前移动（先刷盘，后擦除），空出位置再记录新的日志。</p>
+<h3 id="2-4-Binlog（归档日志）"><a href="#2-4-Binlog（归档日志）" class="headerlink" title="2.4 Binlog（归档日志）"></a>2.4 Binlog（归档日志）</h3><p>在MySQL系列的第一篇<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485477&idx=1&sn=9121da250a8c6d6f7015193c827ec472&scene=21#wechat_redirect">《架构体系》</a>中的就已经阐述了基本架构组成包含Server层与存储引擎层，上述的<strong>「Redo log是InnoDB引擎所特有的一种日志，而MySQL支持的引擎是多种的，因此Server层也有自己的日志，即binlog（归档日志）」</strong>。</p>
+<blockquote>
+<p>顾名思义：binlog日志只能用于归档，</p>
+<p>Redo log能够保证MySQL在任何时间段突然奔溃，重启后以前提交的记录都不会丢失，也就是<strong>「crash-safe」</strong>能力。</p>
+</blockquote>
+<ul>
+<li><p><strong>「简单说一下Redo log与Binlog的不同」</strong></p>
+</li>
+<li><ul>
+<li><p>Redo log是InnoDB引擎特有的,属于物理日志；binlog是MySQL的Server层实现的，所有引擎都可以使用，属于逻辑日志。</p>
+<blockquote>
+<p>Redo log：记录的是结果，某个数据页某条记录做了什么修改，记录修改结果</p>
+<p>Binlog：记录的是原始逻辑，也就是修改的过程</p>
+</blockquote>
+</li>
+<li><p>redo log是循环写的，空间固定会用完，用完就刷盘再清空；binlog是追加写入的，文件写到一定大小后会切换到下一个，不会覆盖之前的日志。</p>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-5-写入语句的执行过程"><a href="#2-5-写入语句的执行过程" class="headerlink" title="2.5 写入语句的执行过程"></a>2.5 写入语句的执行过程</h3><p>通过对以下的几篇文章的介绍，可以使我们对MySQL的写入有了一个大概的认识，内部的执行原理也有了比较清晰的认知，接下来看一下一条sql在执行的整个流程中，从它经历组件，各个组件做的操作等角度来分析一下写操作的执行过程，下面来看一下具体的写操作的执行过程。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">update user set name&#x3D;&#39;星河之码&#39; where id&#x3D;1;</span><br></pre></td></tr></table></figure>
+
+<p>来看看执行上述这个修改语句的整个过程，前面建立连接等几个步骤就省略了，直接看执行器执行时的过程，如下图：</p>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li><p><strong>「执行器通过存储引擎查找【id=1】的记录」</strong>。</p>
+<blockquote>
+<p>存储引擎查找到记录之后将这条记录所在的数据页全部从磁盘读入内存，然后返回给执行器。</p>
+</blockquote>
+</li>
+<li><p><strong>「执行器获取到返回的记录后，修改【name=’星河之码’】，调用存储引擎修改数据」</strong>。</p>
+<blockquote>
+<p><strong>「存储引擎接收到name=’张三’的数据之后，将其更新到内存中对应的数据页中，同时写入redo log日志中，但是redo log写入之后未提交，处于准备（prepare）阶段」</strong>。</p>
+</blockquote>
+</li>
+<li><p><strong>「执行器调用存储引擎修改数据后，会产生一个binlog，并将其写入磁盘中」</strong>。</p>
+<blockquote>
+<p>每个写操作mysql在Server层都会生成一个binlog</p>
+</blockquote>
+</li>
+<li><p><strong>「binlog写入完成，执行器调用存储引擎的提交事务接口」</strong>。</p>
+<blockquote>
+<p><strong>「存储引擎接收到提交事务请求后，会把写入的redo log状态改成提交（commit）状态，完成更新」</strong>。</p>
+</blockquote>
+</li>
+<li><p><strong>「后台线程会定时将Buffer Pool中的修改过的缓存页加载到磁盘中」</strong></p>
+</li>
+</ul>
+<p>通过以上执行过程分析图，写入操作就完成了，由此可见，虽然我们就写了一句update语句，但是实际上mysql还是帮助我们做了很多工作的。</p>
+<p>对上图做了一个简化，其中比较重要的流程就是修改Buffer Pool 与日志同步的过程，如下图：</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061132671.png" alt="图片"></p>
+<p>以上就是MySQ的InnoDB在写入的执行过程，其中涉及到很多细节，这里没有展开，比如数据页的读取，修改数据页之后Buffer Pool怎么刷脏，怎么保证Buffer Pool在有限的内存中加载到更多的热点数据，怎么提高Buffer Pool的命中率等，这些问题在以往的文章中都有详细介绍，有兴趣的可以看一下以下几篇文章：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247486365&idx=1&sn=e092d4aa86dcffa721f944096d35d1a8&scene=21#wechat_redirect">Change Buffer</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247486351&idx=1&sn=bcafc8b2862545396401fc7c7e75c907&scene=21#wechat_redirect">36张图理解Buffer Pool</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485806&idx=1&sn=ed2de04421546b4187a8bbf9da821648&scene=21#wechat_redirect">一文详解六大日志</a></li>
+</ul>
+<h3 id="2-6-两阶段提交"><a href="#2-6-两阶段提交" class="headerlink" title="2.6 两阶段提交"></a>2.6 两阶段提交</h3><blockquote>
+<p>上述的写操作执行过程中，写入Redo log的时候有两个阶段：<strong>「准备阶段与提交阶段」</strong>，为什么不直接一步到位，而要分了两步，再调用一下提交事务的接口呢？是否是多此一举呢？</p>
+</blockquote>
+<p>实际上，在写Redo Log 与Binlog的时候采用<strong>「准备与提交」</strong>两个阶段的方式实现，是为了<strong>「保证数据一致性」</strong>。如果不用这个方式，而是两个日志都采用直接提交的方式，无论谁先谁后，都可能在数据路宕机时丢失数据导致不一致。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">update user set name&#x3D;&#39;星河之码&#39; where id&#x3D;1;</span><br></pre></td></tr></table></figure>
+
+<p>还是以这条更新语句来看，如下：</p>
+<ul>
+<li><p><strong>「先写Redo log后写Binlog」</strong></p>
+<blockquote>
+<p><strong>「假设先写Redo log，并且写入成功,Binlog还没有写完的时候，数据库宕机了」</strong>，那我们在重启数据库后，可以通过Redo log进行恢复，恢复后id=1的记录name为星河之码，但是Binlog没有写完就宕机，所以<strong>「Binlog里面是没有这条更新语句」</strong>的，当我们使用binlog做日志备份，数据同步或者恢复的时候，由于<strong>「binlog丢失就会导致数据与原库不一致」</strong>。</p>
+</blockquote>
+</li>
+<li><p><strong>「先写Binlog后写Redo log」</strong></p>
+<blockquote>
+<p><strong>「假设先写binlog，Redo log还没有写完的时候，数据库宕机了」</strong>，那数据库崩溃恢复后，<strong>「Redo log写入失败，事物无效，id=1的记录name为原值」</strong>。但是binlog已经记录了这条更新语句，当我们使用binlog做日志备份，数据同步或者恢复的时候，就会多这条更新事物，<strong>「导致恢复/备份的id=1的记录name为星河之码，最终导致与原库数据不一致」</strong>。</p>
+</blockquote>
+</li>
+</ul>
+<p>基于此，可以明确无论先写那个日志都会导致数据库不一致，因此，MySQL的设计了准备与提交的两阶段提交的方式。<strong>「Redo log和Binlog用于记录事物的行为状态，两阶段提交可以让这两个状态保持逻辑上的一致，以此保证数据的一致性」</strong>。</p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>MySQL十八：写语句的执行过程</p><p><a href="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E5%85%AB%EF%BC%9A%E5%86%99%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B/">http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E5%85%AB%EF%BC%9A%E5%86%99%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>yunlongn</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2021-08-06</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-12-19</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icon" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a><a class="icon" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a><a class="icon" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/Mysql/">Mysql</a></div><div class="bdsharebuttonbox"><a class="bds_more" href="#" data-cmd="more"></a><a class="bds_qzone" href="#" data-cmd="qzone" title="分享到QQ空间"></a><a class="bds_tsina" href="#" data-cmd="tsina" title="分享到新浪微博"></a><a class="bds_tqq" href="#" data-cmd="tqq" title="分享到腾讯微博"></a><a class="bds_renren" href="#" data-cmd="renren" title="分享到人人网"></a><a class="bds_weixin" href="#" data-cmd="weixin" title="分享到微信"></a></div><script>window._bd_share_config = { "common": { "bdSnsKey": {}, "bdText": "", "bdMini": "2", "bdPic": "", "bdStyle": "0", "bdSize": "16" }, "share": {} }; with (document) 0[(getElementsByTagName('head')[0] || body).appendChild(createElement('script')).src = 'http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion=' + ~(-new Date() / 36e5)];</script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/" alt="支付宝"></span></a><a class="button donate" href="/" target="_blank" rel="noopener" data-type="buymeacoffee"><span class="icon is-small"><i class="fas fa-coffee"></i></span><span>送我杯咖啡</span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/2021/08/06/MySQL%E5%8D%81%E4%B9%9D%EF%BC%9A%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E5%AE%9E%E8%B7%B5/"><i class="level-item fas fa-chevron-left"></i><span class="level-item">MySQL十九：分库分表实践</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2021/08/06/MySQL%E5%8D%81%E4%B8%83%EF%BC%9AChange%20Buffer/"><span class="level-item">MySQL十七：Change Buffer</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div id="comment-container"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.css"><script src="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script><script>var gitalk = new Gitalk({
+            id: "d2aeeeaa47fc4c9c78409087c13c6d44",
+            repo: "yunlongn.github.io",
+            owner: "yunlongn",
+            clientID: "fb8ffef00dff08ccb06c",
+            clientSecret: "935a05558f847f4321d3c64b4c0c2498697a2bda",
+            admin: "yunlongn",
+            createIssueManually: false,
+            distractionFreeMode: false,
+            perPage: 10,
+            pagerDirection: "last",
+            
+            
+            enableHotKey: true,
+            
+        })
+        gitalk.render('comment-container')</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar" src="/img/avatar.png" alt="云扬四海"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">云扬四海</p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">77</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">24</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">29</p></a></div></div></nav><div class="level"><a class="level-item button is-primary is-rounded" href="http://github.com/yunlongn" target="_blank" rel="noopener">关注我</a></div><div class="level is-mobile"><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Github" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="cnblogs" href="https://www.cnblogs.com/rolandlee/"><i class="fas fa-book"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="RSS" href="/atom.xml"><i class="fas fa-rss"></i></a></div></div></div><!--!--><div class="card widget" data-type="tagscloud" style="transition: opacity 0.3s ease-out 0s, transform 0.3s ease-out 0s; opacity: 1; transform-origin: center top;"><div class="card-content" id="tags"><h3 class="menu-label">标签云</h3><a href="/tags/JVM/" style="color:rgb(175,157,83);font-size:13px">JVM<span class="tag-cloud-count">(1) </span></a><a href="/tags/Java/" style="color:rgb(137,161,143);font-size:13px">Java<span class="tag-cloud-count">(5) </span></a><a href="/tags/Mysql/" style="color:rgb(150,120,89);font-size:20px">Mysql<span class="tag-cloud-count">(18) </span></a><a href="/tags/Netty/" style="color:rgb(189,168,84);font-size:16px">Netty<span class="tag-cloud-count">(1) </span></a><a href="/tags/Nginx/" style="color:rgb(154,149,127);font-size:19px">Nginx<span class="tag-cloud-count">(1) </span></a><a href="/tags/SpringBoot/" style="color:rgb(200,143,102);font-size:19px">SpringBoot<span class="tag-cloud-count">(2) </span></a><a href="/tags/heroku/" style="color:rgb(175,162,89);font-size:14px">heroku<span class="tag-cloud-count">(1) </span></a><a href="/tags/java/" style="color:rgb(168,168,125);font-size:20px">java<span class="tag-cloud-count">(1) </span></a><a href="/tags/java%E5%9F%BA%E7%A1%80/" style="color:rgb(204,170,108);font-size:20px">java基础<span class="tag-cloud-count">(2) </span></a><a href="/tags/java%E6%A0%B8%E5%BF%83/" style="color:rgb(181,130,130);font-size:17px">java核心<span class="tag-cloud-count">(1) </span></a><a href="/tags/linux/" style="color:rgb(162,114,83);font-size:14px">linux<span class="tag-cloud-count">(1) </span></a><a href="/tags/mq/" style="color:rgb(162,150,116);font-size:14px">mq<span class="tag-cloud-count">(1) </span></a><a href="/tags/mybatisPlus/" style="color:rgb(159,162,132);font-size:20px">mybatisPlus<span class="tag-cloud-count">(1) </span></a><a href="/tags/nio/" style="color:rgb(137,126,86);font-size:19px">nio<span class="tag-cloud-count">(1) </span></a><a href="/tags/servlet/" style="color:rgb(169,154,105);font-size:17px">servlet<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BA%8B%E5%8A%A1/" style="color:rgb(192,140,103);font-size:17px">事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BF%A1%E5%8F%B7%E9%87%8F/" style="color:rgb(141,129,128);font-size:16px">信号量<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" style="color:rgb(174,127,104);font-size:15px">分布式事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9B%BE%E7%89%87%E8%AF%86%E5%88%AB/" style="color:rgb(135,112,147);font-size:16px">图片识别<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9F%BA%E6%9C%AC%E5%91%BD%E4%BB%A4/" style="color:rgb(131,106,97);font-size:17px">基本命令<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/" style="color:rgb(167,133,138);font-size:14px">小程序<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B7%A5%E5%85%B7/" style="color:rgb(157,149,154);font-size:16px">工具<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%80%A7%E8%83%BD/" style="color:rgb(153,135,140);font-size:16px">性能<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%8A%80%E5%B7%A7/" style="color:rgb(164,115,123);font-size:19px">技巧<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E7%AD%BE%E5%90%8D/" style="color:rgb(145,124,86);font-size:17px">签名<span class="tag-cloud-count">(2) </span></a><a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="color:rgb(181,140,93);font-size:18px">设计模式<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/" style="color:rgb(149,141,144);font-size:17px">读书笔记<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%98%B2%E7%9B%97%E9%93%BE/" style="color:rgb(168,105,101);font-size:20px">防盗链<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="color:rgb(151,159,138);font-size:19px">面试<span class="tag-cloud-count">(1) </span></a></div></div><div class="card widget" data-type="links"><div class="card-content"><div class="menu"><h3 class="menu-label">链接</h3><ul class="menu-list"><li><a class="level is-mobile" href="http://www.ityouknow.com" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">纯洁的微笑</span></span><span class="level-right"><span class="level-item tag">www.ityouknow.com</span></span></a></li><li><a class="level is-mobile" href="https://blog.52itstyle.vip/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">柒&#039;s</span></span><span class="level-right"><span class="level-item tag">blog.52itstyle.vip</span></span></a></li><li><a class="level is-mobile" href="https://www.wdk.pw/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">王登科</span></span><span class="level-right"><span class="level-item tag">www.wdk.pw</span></span></a></li></ul></div></div></div></div><!--!--></div></div></section><embed src="/img/footer.svg" id="galinv" type="image/svg+xml"><footer class="footer"><div class="footer-image"><img src="/img/o_cnblogs_footer.png" width="60%"></div><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/">云扬四海</a><p class="is-size-7"><span>&copy; 2025 yunlongn</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/yunlongn"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" async></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>

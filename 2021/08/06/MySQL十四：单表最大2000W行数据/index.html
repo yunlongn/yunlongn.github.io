@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>MySQL十四：单表最大2000W行数据 - 云扬四海</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="云扬四海"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="云扬四海"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta description="在互联网技术圈中有一个说法：「MySQL 单表数据量大于 2000 W行，性能会明显下降」。网传这个说法最早由百度传出，真假不得而知。但是却成为了行业内一个默认的标准。  单表超过2000W行数据一定会导致性能下降吗？我认为是不一定的，虽然说建议单表不超过2000W，但是我不接受它的建议可不可以？那必然也是可以的。  一、单表最大到底能存多少数据先来看看下面这张图，了解一下mysql各个类型的大小"><meta property="og:type" content="blog"><meta property="og:title" content="MySQL十四：单表最大2000W行数据"><meta property="og:url" content="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E5%9B%9B%EF%BC%9A%E5%8D%95%E8%A1%A8%E6%9C%80%E5%A4%A72000W%E8%A1%8C%E6%95%B0%E6%8D%AE/"><meta property="og:site_name" content="云扬四海"><meta property="og:description" content="在互联网技术圈中有一个说法：「MySQL 单表数据量大于 2000 W行，性能会明显下降」。网传这个说法最早由百度传出，真假不得而知。但是却成为了行业内一个默认的标准。  单表超过2000W行数据一定会导致性能下降吗？我认为是不一定的，虽然说建议单表不超过2000W，但是我不接受它的建议可不可以？那必然也是可以的。  一、单表最大到底能存多少数据先来看看下面这张图，了解一下mysql各个类型的大小"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129867.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129805.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129793.jpeg"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129850.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129747.png"><meta property="article:published_time" content="2021-08-06T08:14:00.000Z"><meta property="article:modified_time" content="2025-12-19T06:50:33.440Z"><meta property="article:author" content="yunlongn"><meta property="article:tag" content="Mysql"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129867.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E5%9B%9B%EF%BC%9A%E5%8D%95%E8%A1%A8%E6%9C%80%E5%A4%A72000W%E8%A1%8C%E6%95%B0%E6%8D%AE/"},"headline":"云扬四海","image":["https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129867.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129805.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129850.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129747.png"],"datePublished":"2021-08-06T08:14:00.000Z","dateModified":"2025-12-19T06:50:33.440Z","author":{"@type":"Person","name":"yunlongn"},"description":"在互联网技术圈中有一个说法：「MySQL 单表数据量大于 2000 W行，性能会明显下降」。网传这个说法最早由百度传出，真假不得而知。但是却成为了行业内一个默认的标准。  单表超过2000W行数据一定会导致性能下降吗？我认为是不一定的，虽然说建议单表不超过2000W，但是我不接受它的建议可不可以？那必然也是可以的。  一、单表最大到底能存多少数据先来看看下面这张图，了解一下mysql各个类型的大小"}</script><link rel="canonical" href="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E5%9B%9B%EF%BC%9A%E5%8D%95%E8%A1%A8%E6%9C%80%E5%A4%A72000W%E8%A1%8C%E6%95%B0%E6%8D%AE/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.8.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css"><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script><!--!--><!--!--><meta name="generator" content="Hexo 5.4.2"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/">云扬四海</a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">首页</a><a class="navbar-item" href="/archives">列表</a><a class="navbar-item" href="/categories">类别</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a><a class="navbar-item" href="/yun/fireworks/index.html">fireworks</a><a class="navbar-item" href="/yun/Photo_Wall3D.html">photoWall3D</a><a class="navbar-item" href="/yun/sheep.html">sheep</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-9-tablet is-9-desktop is-9-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2021-08-06T08:14:00.000Z" title="2021-08-06T08:14:00.000Z">2021-08-06</time>发表</span><span class="level-item"><time dateTime="2025-12-19T06:50:33.440Z" title="2025-12-19T06:50:33.440Z">2025-12-19</time>更新</span><span class="level-item"> yunlongn </span><span class="level-item"><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a><span> / </span><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Mysql/">Mysql</a></span><span class="level-item">18 分钟读完 (大约2689个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">MySQL十四：单表最大2000W行数据</h1><div class="content"><p>在互联网技术圈中有一个说法：<strong>「MySQL 单表数据量大于 2000 W行，性能会明显下降」</strong>。网传这个说法最早由百度传出，真假不得而知。但是却成为了行业内一个默认的标准。</p>
+<blockquote>
+<p>单表超过2000W行数据一定会导致性能下降吗？我认为是不一定的，虽然说建议单表不超过2000W，但是我不接受它的建议可不可以？那必然也是可以的。</p>
+</blockquote>
+<h2 id="一、单表最大到底能存多少数据"><a href="#一、单表最大到底能存多少数据" class="headerlink" title="一、单表最大到底能存多少数据"></a><strong>一、单表最大到底能存多少数据</strong></h2><p>先来看看下面这张图，了解一下mysql各个类型的大小</p>
+<span id="more"></span>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129867.png" alt="图片"></p>
+<p>我们知道在MySQL是支持主键自增长的，不考虑其他因素的前提下，理论上只有主键没有用完，表中的数据就可以一直增加。从上图可以中可以分析出：</p>
+<ul>
+<li><p><strong>「主键类型为Int时」</strong></p>
+<p>主键32位，数据最大为2^32-1，大约可以存储21亿的数据，远远大约2KW。</p>
+</li>
+<li><p><strong>「主键类型为bigint时」</strong></p>
+<p>主键64位，数据最大为2^64-1，存储的数据远远大于了常用的计量单位了，磁盘都达不到这个数量级。</p>
+</li>
+<li><p><strong>「主键类型为tinyint时」</strong></p>
+<p>主键8位，数据最大为255，Id自增超过255就会报错</p>
+</li>
+</ul>
+<p><strong>「由此可見：MySQL能够存储的数据在一定程度上受限与主键的类型。但是数据量的大小却跟2000W没啥影响，既然百度大佬推荐单表最大2000W行数据，那肯定不会是空口白话，一定定会有其他影响行数的因素」</strong>。</p>
+<h2 id="二、数据存储的结构"><a href="#二、数据存储的结构" class="headerlink" title="二、数据存储的结构"></a><strong>二、数据存储的结构</strong></h2><p>先不要着急，影响数据行数的因素肯定是有的，在此之前，先来看看数据在InnoDB中是怎么存储在磁盘的，又是怎么读取的。</p>
+<h3 id="2-1-数据存储的结构"><a href="#2-1-数据存储的结构" class="headerlink" title="2.1 数据存储的结构"></a>2.1 数据存储的结构</h3><p>在MySQL中默认的存储引擎是InnoDB，在之前的<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485575&idx=1&sn=71b709d073e83b5b0239edc2fa83a307&scene=21#wechat_redirect">《存储引擎》</a>中有说过，InnoDB为每个表都生成了两个文件：</p>
+<ul>
+<li>.frm文件：表结构文件</li>
+<li>.ibd文件：数据文件（聚簇索引包含数据与索引），又叫<strong>「表空间」</strong>。</li>
+</ul>
+<p>我们表中的的数据其实都是存储在磁盘的.ibd文件中，而每次读取整个.ibd文件无疑是非常慢的，所以在<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485727&idx=1&sn=17cd0b2d040e84205d2cc9a88d53162c&scene=21#wechat_redirect">《InnoDB数据文件》</a>中又提到，<strong>「InnoDB将数据划分为若干个页，以页作为磁盘和内存之间交互的基本单位，InnoDB中页的大小一般为 16KB」</strong>。如下</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129805.png" alt="图片"></p>
+<p>从上图中可以很清晰的看出，<strong>「一个.ibd文件文件是由多个数据页组成的，也就是说一个表的数据会被分散存储在多个数据页中」</strong>。当然数据页也不仅仅只是存储表中的数据，先来回顾一下页的组成</p>
+<ul>
+<li><strong>「页的组成」</strong></li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129793.jpeg" alt="图片"></p>
+<p>如图所示，InnoDB数据页由以下七个部分组成，</p>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<p>从也得组成中我们知道，<strong>「数据页中还存储了除数据之外的东西，比如数据页的前后指针，页号，页目录等，因此虽然一个数据页一共16KB，但是能够用来存储数据的其实是不足16KB的」</strong> 。</p>
+<p>通过页的组成，我们可以大致分析在数据页中一下<strong>「查找数据的整体过程」</strong>：</p>
+<ul>
+<li>记录被分散在不同的数据页中，InnoDB通过<strong>「页号【表空间的地址偏移量】来标识数据具体在哪一页中」</strong>。</li>
+<li>不通的数据页之间使用<strong>「前后指针」</strong>进行关联，避免检索消耗，</li>
+<li>当找到数据在那个数据页之后，InnoDB为避免遍历检索而提供了一个<strong>「页目录」</strong>，页目录通过<strong>「二分查找」</strong>将查找效率<strong>「从O(n) 变成O(lgn)」</strong>，从而快速定位数据的位置。</li>
+</ul>
+<h3 id="2-2-索引的结构"><a href="#2-2-索引的结构" class="headerlink" title="2.2 索引的结构"></a>2.2 索引的结构</h3><p>既然在.ibd文件中只要知道了页号，就可以快速定位数据行的位置，从而读取到相应的数据。那么问题来了，我咋知道我要找的数据在那个数据页里，咋知道页号是啥？</p>
+<p>万事都有解决的方式，要知道页号其实也简单，无非就两种方式：</p>
+<ul>
+<li><strong>「全表扫描」</strong>：简单粗暴，没那么多花花肠子，干就完事，但是<strong>「数据量大了，性能就会下降，非长久之计」</strong>。</li>
+<li><strong>「通过索引找到数据页」</strong>：重点了解一下这个</li>
+</ul>
+<p>在<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247486030&idx=1&sn=ffd84e5aa3b0481d38110eb40d557dea&scene=21#wechat_redirect">《索引基本原理》</a>中解释了InnoDB索引是基于B+tree实现的，InnoDB在构建B+tree结构时，一般会找出每个数据页中id最小（或者说索引最小， InnoDB主键即聚簇索引）的记录与其对应的页号，<strong>「将id与页号组成一个新的记录，存储在一个新生成的数据页中，其大小也为16K，为与存储数据的数据页区分，引入了数据页之间的上下层级关系」</strong>，也就是<strong>「页层级（page level）」</strong>。因此我们知道在B+tree中分为两部分：</p>
+<ul>
+<li><strong>「叶子节点」</strong>：真正存放表中的数据的数据页，page level = 0</li>
+<li><strong>「非叶子节点」</strong>：存放索引以及索引对应数据所在的页号的数据页</li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129850.png" alt="图片"></p>
+<p>根据这张B+tree的图，我们知道数据页之间是有地址指向的，如果要找一条数据，最多只需要经历三次<strong>「磁盘IO」</strong>就可以将数据页都加载到内存中，从而找到数据，完成查询。</p>
+<h2 id="三、B-Tree能存储多少数据"><a href="#三、B-Tree能存储多少数据" class="headerlink" title="三、B+Tree能存储多少数据"></a><strong>三、B+Tree能存储多少数据</strong></h2><p>要知道一个B+Tree能存储多少数据其实也不难，B+Tree中的叶子节点存放的是数据，而一个数据页只有16K，我们<strong>「假设：数据页中页目录，页头，页尾加起来总共占用1KB，剩余15KB全部用了存放数据」</strong>。</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061129747.png" alt="图片"></p>
+<p>如上图：</p>
+<ul>
+<li>将B+tree的高度定义为N</li>
+<li>非叶子节点的数据页存储数量为X，也就是有X个数据页的页号</li>
+<li>叶子节点的数据页存储数据为Y</li>
+</ul>
+<p>根据以上定义，B+tree存储的数据总量：<strong>「M ={X ^ (N-1)} * Y」</strong></p>
+<p>前文中我们说到主键类型会影响行数，那么此时我们<strong>「假设主键类型为bigint类型，占8个字节，而在InnoDB源码中页号（FIL_PAGE_OFFSET）被设置为4字节」</strong>。则此时非叶子节点能存储的数据量为</p>
+<p><strong>「X = 15 * 1024 / (8 +4) = 1280」</strong></p>
+<blockquote>
+<p>前面已经将目录，页头，页尾作为1KB排除，所以这里是15</p>
+</blockquote>
+<p><strong>「基于此：在来做一个假设，假设叶子节点中存储的数据，每条的大小都为1KB，即每个数据页存储15条数据。」</strong></p>
+<p><strong>「Y  = 15」</strong></p>
+<p>现在来看看B+tree的数据量</p>
+<ul>
+<li><p><strong>「两层B+tree的数据量（N=2）」</strong></p>
+<p><strong>「M = {X ^ (N-1)} * Y  = {1280 ^ (2-1)} * 15 = 19200 条」</strong></p>
+</li>
+<li><p><strong>「三层B+tree的数据量（N=3）」</strong></p>
+<p><strong>「M = {X ^ (N-1)} * Y  = {1280 ^ (3-1)} * 15 = 24579000条」</strong></p>
+</li>
+<li><p><strong>「四层B+tree的数据量（N=4）」</strong></p>
+<p><strong>「M = {X ^ (N-1)} * Y  = {1280 ^ (4-1)} * 15 = 计算器都算不清楚了」</strong></p>
+<blockquote>
+<p>可能还没有写到这么多数据，磁盘已经罢工了</p>
+</blockquote>
+</li>
+</ul>
+<p><strong>「从这里的24579000条，我们就知道为啥单表不推荐超过2000W了，三层B+tree的时候最多只有三次磁盘IO，四层的时候数据量太大，磁盘可能都造不住了」</strong>。</p>
+<h2 id="四、啥时候能超过2000W的数据"><a href="#四、啥时候能超过2000W的数据" class="headerlink" title="四、啥时候能超过2000W的数据"></a><strong>四、啥时候能超过2000W的数据</strong></h2><p>不知道大家有没有注意到一点，在上面计算中，我们都是做了很多假设，其中就有一条：<strong>「假设叶子节点中每条数据占用1KB，以此得出一个数据页的数据量Y=15」</strong>。</p>
+<p>在实际中，要是我一行的数据非常小，仅仅只占用了100KB（比如一个中间表，记录的仅仅是ID），此时</p>
+<ul>
+<li><p><strong>「叶子节点数据页的数据量」</strong></p>
+<p><strong>「Y = 15 * 1024 / 100 = 153」</strong></p>
+</li>
+<li><p><strong>「三层B+tree的数据量」</strong></p>
+<p><strong>「M = {X ^ (N-1)} * Y  = {1280 ^ (3-1)} * 153 = 250675200条」</strong></p>
+</li>
+</ul>
+<p><strong>「同样是三层B+tree，此时却可以存储2.5亿条数据，增长十倍，但是查找同样只需要三次磁盘IO，并不会对性能有太大影响」</strong>。</p>
+<p>这里说的<strong>「是【叶子节点】数据页的数据行大小」</strong>影响了最终存储的数据总量，<strong>「实际上【非叶子节点】的数据页存储数量X的大小变化的时候」</strong>，也会影响数据总量，但是这种影响一般会在B-tree中体现。</p>
+<p>我们知道B-tree跟B+tree最大的区别就是<strong>「B-tree的非叶子节点中存储的是真实的数据行，而数据页的大小是16KB固定的，因此相同数据下，B-tree需要更多数据页才能存储数据，数据页增多势必会造成非叶子节点的层级变高，造成更多的磁盘IO，导致性能下降」</strong>。这也是InnoDB使用B+tree作为索引结构，而不用B-tree的原因。</p>
+<ul>
+<li><p><strong>「总结」</strong></p>
+<p>这里总结一下前文中提的问题<strong>「其他影响行数的因素」</strong>？现在就很清晰了，除了主键大小和磁盘限制，最重要的就是索引的结构，即B+tree。</p>
+</li>
+</ul>
+</div><div class="article-licensing box"><div class="licensing-title"><p>MySQL十四：单表最大2000W行数据</p><p><a href="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E5%9B%9B%EF%BC%9A%E5%8D%95%E8%A1%A8%E6%9C%80%E5%A4%A72000W%E8%A1%8C%E6%95%B0%E6%8D%AE/">http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E5%9B%9B%EF%BC%9A%E5%8D%95%E8%A1%A8%E6%9C%80%E5%A4%A72000W%E8%A1%8C%E6%95%B0%E6%8D%AE/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>yunlongn</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2021-08-06</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-12-19</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icon" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a><a class="icon" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a><a class="icon" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/Mysql/">Mysql</a></div><div class="bdsharebuttonbox"><a class="bds_more" href="#" data-cmd="more"></a><a class="bds_qzone" href="#" data-cmd="qzone" title="分享到QQ空间"></a><a class="bds_tsina" href="#" data-cmd="tsina" title="分享到新浪微博"></a><a class="bds_tqq" href="#" data-cmd="tqq" title="分享到腾讯微博"></a><a class="bds_renren" href="#" data-cmd="renren" title="分享到人人网"></a><a class="bds_weixin" href="#" data-cmd="weixin" title="分享到微信"></a></div><script>window._bd_share_config = { "common": { "bdSnsKey": {}, "bdText": "", "bdMini": "2", "bdPic": "", "bdStyle": "0", "bdSize": "16" }, "share": {} }; with (document) 0[(getElementsByTagName('head')[0] || body).appendChild(createElement('script')).src = 'http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion=' + ~(-new Date() / 36e5)];</script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/" alt="支付宝"></span></a><a class="button donate" href="/" target="_blank" rel="noopener" data-type="buymeacoffee"><span class="icon is-small"><i class="fas fa-coffee"></i></span><span>送我杯咖啡</span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/2021/08/06/MySQL%E5%8D%81%E5%85%AD%EF%BC%9A36%E5%BC%A0%E5%9B%BE%E7%90%86%E8%A7%A3Buffer%20Pool/"><i class="level-item fas fa-chevron-left"></i><span class="level-item">MySQL十六：36张图理解Buffer Pool</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2021/08/06/MySQL%E5%8D%81%E4%B8%89%EF%BC%9A%E5%B0%8F%E4%B8%80%E4%B8%87%E5%AD%97+14%E5%BC%A0%E5%9B%BE%E8%AF%BB%E6%87%82%E9%94%81%E6%9C%BA%E5%88%B6/"><span class="level-item">MySQL(十三)：小一万字+14张图读懂锁机制</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div id="comment-container"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.css"><script src="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script><script>var gitalk = new Gitalk({
+            id: "318e5cd14b36c863c11c440a995cc44d",
+            repo: "yunlongn.github.io",
+            owner: "yunlongn",
+            clientID: "fb8ffef00dff08ccb06c",
+            clientSecret: "935a05558f847f4321d3c64b4c0c2498697a2bda",
+            admin: "yunlongn",
+            createIssueManually: false,
+            distractionFreeMode: false,
+            perPage: 10,
+            pagerDirection: "last",
+            
+            
+            enableHotKey: true,
+            
+        })
+        gitalk.render('comment-container')</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar" src="/img/avatar.png" alt="云扬四海"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">云扬四海</p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">77</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">24</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">29</p></a></div></div></nav><div class="level"><a class="level-item button is-primary is-rounded" href="http://github.com/yunlongn" target="_blank" rel="noopener">关注我</a></div><div class="level is-mobile"><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Github" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="cnblogs" href="https://www.cnblogs.com/rolandlee/"><i class="fas fa-book"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="RSS" href="/atom.xml"><i class="fas fa-rss"></i></a></div></div></div><!--!--><div class="card widget" data-type="tagscloud" style="transition: opacity 0.3s ease-out 0s, transform 0.3s ease-out 0s; opacity: 1; transform-origin: center top;"><div class="card-content" id="tags"><h3 class="menu-label">标签云</h3><a href="/tags/JVM/" style="color:rgb(190,131,112);font-size:20px">JVM<span class="tag-cloud-count">(1) </span></a><a href="/tags/Java/" style="color:rgb(164,125,90);font-size:17px">Java<span class="tag-cloud-count">(5) </span></a><a href="/tags/Mysql/" style="color:rgb(168,121,99);font-size:15px">Mysql<span class="tag-cloud-count">(18) </span></a><a href="/tags/Netty/" style="color:rgb(151,123,150);font-size:17px">Netty<span class="tag-cloud-count">(1) </span></a><a href="/tags/Nginx/" style="color:rgb(199,139,121);font-size:21px">Nginx<span class="tag-cloud-count">(1) </span></a><a href="/tags/SpringBoot/" style="color:rgb(158,129,126);font-size:14px">SpringBoot<span class="tag-cloud-count">(2) </span></a><a href="/tags/heroku/" style="color:rgb(194,125,143);font-size:21px">heroku<span class="tag-cloud-count">(1) </span></a><a href="/tags/java/" style="color:rgb(195,131,108);font-size:16px">java<span class="tag-cloud-count">(1) </span></a><a href="/tags/java%E5%9F%BA%E7%A1%80/" style="color:rgb(198,141,123);font-size:15px">java基础<span class="tag-cloud-count">(2) </span></a><a href="/tags/java%E6%A0%B8%E5%BF%83/" style="color:rgb(178,119,123);font-size:16px">java核心<span class="tag-cloud-count">(1) </span></a><a href="/tags/linux/" style="color:rgb(131,170,82);font-size:20px">linux<span class="tag-cloud-count">(1) </span></a><a href="/tags/mq/" style="color:rgb(139,153,117);font-size:16px">mq<span class="tag-cloud-count">(1) </span></a><a href="/tags/mybatisPlus/" style="color:rgb(190,139,133);font-size:19px">mybatisPlus<span class="tag-cloud-count">(1) </span></a><a href="/tags/nio/" style="color:rgb(148,123,144);font-size:21px">nio<span class="tag-cloud-count">(1) </span></a><a href="/tags/servlet/" style="color:rgb(135,131,113);font-size:22px">servlet<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BA%8B%E5%8A%A1/" style="color:rgb(159,124,139);font-size:14px">事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BF%A1%E5%8F%B7%E9%87%8F/" style="color:rgb(174,173,148);font-size:17px">信号量<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" style="color:rgb(156,148,140);font-size:15px">分布式事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9B%BE%E7%89%87%E8%AF%86%E5%88%AB/" style="color:rgb(182,109,100);font-size:21px">图片识别<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9F%BA%E6%9C%AC%E5%91%BD%E4%BB%A4/" style="color:rgb(147,136,98);font-size:22px">基本命令<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/" style="color:rgb(160,164,102);font-size:13px">小程序<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B7%A5%E5%85%B7/" style="color:rgb(190,153,93);font-size:16px">工具<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%80%A7%E8%83%BD/" style="color:rgb(172,144,82);font-size:14px">性能<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%8A%80%E5%B7%A7/" style="color:rgb(180,161,92);font-size:14px">技巧<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E7%AD%BE%E5%90%8D/" style="color:rgb(176,130,81);font-size:19px">签名<span class="tag-cloud-count">(2) </span></a><a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="color:rgb(154,141,104);font-size:15px">设计模式<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/" style="color:rgb(190,163,151);font-size:14px">读书笔记<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%98%B2%E7%9B%97%E9%93%BE/" style="color:rgb(156,134,99);font-size:18px">防盗链<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="color:rgb(201,111,82);font-size:21px">面试<span class="tag-cloud-count">(1) </span></a></div></div><div class="card widget" data-type="links"><div class="card-content"><div class="menu"><h3 class="menu-label">链接</h3><ul class="menu-list"><li><a class="level is-mobile" href="http://www.ityouknow.com" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">纯洁的微笑</span></span><span class="level-right"><span class="level-item tag">www.ityouknow.com</span></span></a></li><li><a class="level is-mobile" href="https://blog.52itstyle.vip/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">柒&#039;s</span></span><span class="level-right"><span class="level-item tag">blog.52itstyle.vip</span></span></a></li><li><a class="level is-mobile" href="https://www.wdk.pw/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">王登科</span></span><span class="level-right"><span class="level-item tag">www.wdk.pw</span></span></a></li></ul></div></div></div></div><!--!--></div></div></section><embed src="/img/footer.svg" id="galinv" type="image/svg+xml"><footer class="footer"><div class="footer-image"><img src="/img/o_cnblogs_footer.png" width="60%"></div><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/">云扬四海</a><p class="is-size-7"><span>&copy; 2025 yunlongn</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/yunlongn"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" async></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>

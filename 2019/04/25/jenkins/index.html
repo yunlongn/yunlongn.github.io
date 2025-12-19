@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>jenkins - 云扬四海</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="云扬四海"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="云扬四海"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta description="Jenkins 是 Devops 神器，本篇文章介绍如何安装和使用 Jenkins 部署 Spring Boot 项目 Jenkins 搭建、部署分为四个步骤；  第一步，Jenkins 安装   第二步，插件安装和配置   第三步，Push SSH  第四步，部署项目  第一步 ，Jenkins 安装准备环境： JDK:1.8Jenkins:2.83Centos:7.3maven 3.5  Jd"><meta property="og:type" content="blog"><meta property="og:title" content="jenkins"><meta property="og:url" content="http://ityouknow.cn/2019/04/25/jenkins/"><meta property="og:site_name" content="云扬四海"><meta property="og:description" content="Jenkins 是 Devops 神器，本篇文章介绍如何安装和使用 Jenkins 部署 Spring Boot 项目 Jenkins 搭建、部署分为四个步骤；  第一步，Jenkins 安装   第二步，插件安装和配置   第三步，Push SSH  第四步，部署项目  第一步 ，Jenkins 安装准备环境： JDK:1.8Jenkins:2.83Centos:7.3maven 3.5  Jd"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/1.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/2.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/3.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/32.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/4.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/5.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/6.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/7.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/8.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/40.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/41.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/9.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com//blog/20190509093550.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com//blog/20190509093506.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com//blog/20190509093417.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/10.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/12.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/11.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/13.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/14.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/15.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/16.png"><meta property="og:image" content="http://www.itmind.net/assets/images/2017/jenkins/17.png"><meta property="article:published_time" content="2019-04-25T15:25:00.000Z"><meta property="article:modified_time" content="2025-12-19T06:50:33.449Z"><meta property="article:author" content="RolandLee"><meta property="article:tag" content="SpringBoot"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="http://www.itmind.net/assets/images/2017/jenkins/1.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://ityouknow.cn/2019/04/25/jenkins/"},"headline":"云扬四海","image":["http://www.itmind.net/assets/images/2017/jenkins/1.png","http://www.itmind.net/assets/images/2017/jenkins/2.png","http://www.itmind.net/assets/images/2017/jenkins/3.png","http://www.itmind.net/assets/images/2017/jenkins/32.png","http://www.itmind.net/assets/images/2017/jenkins/4.png","http://www.itmind.net/assets/images/2017/jenkins/5.png","http://www.itmind.net/assets/images/2017/jenkins/6.png","http://www.itmind.net/assets/images/2017/jenkins/7.png","http://www.itmind.net/assets/images/2017/jenkins/8.png","http://www.itmind.net/assets/images/2017/jenkins/40.png","http://www.itmind.net/assets/images/2017/jenkins/41.png","http://www.itmind.net/assets/images/2017/jenkins/9.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com//blog/20190509093550.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com//blog/20190509093506.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com//blog/20190509093417.png","http://www.itmind.net/assets/images/2017/jenkins/10.png","http://www.itmind.net/assets/images/2017/jenkins/12.png","http://www.itmind.net/assets/images/2017/jenkins/11.png","http://www.itmind.net/assets/images/2017/jenkins/13.png","http://www.itmind.net/assets/images/2017/jenkins/14.png","http://www.itmind.net/assets/images/2017/jenkins/15.png","http://www.itmind.net/assets/images/2017/jenkins/16.png","http://www.itmind.net/assets/images/2017/jenkins/17.png"],"datePublished":"2019-04-25T15:25:00.000Z","dateModified":"2025-12-19T06:50:33.449Z","author":{"@type":"Person","name":"RolandLee"},"description":"Jenkins 是 Devops 神器，本篇文章介绍如何安装和使用 Jenkins 部署 Spring Boot 项目 Jenkins 搭建、部署分为四个步骤；  第一步，Jenkins 安装   第二步，插件安装和配置   第三步，Push SSH  第四步，部署项目  第一步 ，Jenkins 安装准备环境： JDK:1.8Jenkins:2.83Centos:7.3maven 3.5  Jd"}</script><link rel="canonical" href="http://ityouknow.cn/2019/04/25/jenkins/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.8.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css"><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script><!--!--><!--!--><meta name="generator" content="Hexo 5.4.2"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/">云扬四海</a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">首页</a><a class="navbar-item" href="/archives">列表</a><a class="navbar-item" href="/categories">类别</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a><a class="navbar-item" href="/yun/fireworks/index.html">fireworks</a><a class="navbar-item" href="/yun/Photo_Wall3D.html">photoWall3D</a><a class="navbar-item" href="/yun/sheep.html">sheep</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-9-tablet is-9-desktop is-9-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2019-04-25T15:25:00.000Z" title="2019-04-25T15:25:00.000Z">2019-04-25</time>发表</span><span class="level-item"><time dateTime="2025-12-19T06:50:33.449Z" title="2025-12-19T06:50:33.449Z">2025-12-19</time>更新</span><span class="level-item"> RolandLee </span><span class="level-item"><a class="link-muted" href="/categories/java/">java</a></span><span class="level-item">16 分钟读完 (大约2370个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">jenkins</h1><div class="content"><p>Jenkins 是 Devops 神器，本篇文章介绍如何安装和使用 Jenkins 部署 Spring Boot 项目</p>
+<p>Jenkins 搭建、部署分为四个步骤；</p>
+<ul>
+<li>第一步，Jenkins 安装  </li>
+<li>第二步，插件安装和配置  </li>
+<li>第三步，Push SSH </li>
+<li>第四步，部署项目</li>
+</ul>
+<h2 id="第一步-，Jenkins-安装"><a href="#第一步-，Jenkins-安装" class="headerlink" title="第一步 ，Jenkins 安装"></a>第一步 ，Jenkins 安装</h2><p>准备环境：</p>
+<p>JDK:1.8<br>Jenkins:2.83<br>Centos:7.3<br>maven 3.5</p>
+<blockquote>
+<p>Jdk 默认已经安装完成</p>
+</blockquote>
+<span id="more"></span>
+
+<h3 id="配置-Maven"><a href="#配置-Maven" class="headerlink" title="配置 Maven"></a>配置 Maven</h3><p>版本要求 Maven3.5.0</p>
+<p>软件下载</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">wget http://mirror.bit.edu.cn/apache/maven/maven-3/3.5.0/binaries/apache-maven-3.5.0-bin.tar.gz</span><br></pre></td></tr></table></figure>
+
+<p>安装</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 解压</span></span><br><span class="line">tar vxf apache-maven-3.5.0-bin.tar.gz</span><br><span class="line"><span class="comment">## 移动</span></span><br><span class="line">mv apache-maven-3.5.0 /usr/<span class="built_in">local</span>/maven3</span><br></pre></td></tr></table></figure>
+
+<p>修改环境变量，<br>在<code>/etc/profile</code>中添加以下几行</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">MAVEN_HOME=/usr/<span class="built_in">local</span>/maven3</span><br><span class="line"><span class="built_in">export</span> MAVEN_HOME</span><br><span class="line"><span class="built_in">export</span> PATH=<span class="variable">$&#123;PATH&#125;</span>:<span class="variable">$&#123;MAVEN_HOME&#125;</span>/bin</span><br></pre></td></tr></table></figure>
+
+<p>记得执行<code>source /etc/profile</code>使环境变量生效。</p>
+<p>验证<br>最后运行<code>mvn -v</code>验证maven是否安装成功</p>
+<h3 id="配置防护墙"><a href="#配置防护墙" class="headerlink" title="配置防护墙"></a>配置防护墙</h3><p>关闭防护墙</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#centos7</span></span><br><span class="line">systemctl stop firewalld.service</span><br><span class="line">==============================</span><br><span class="line"><span class="comment">#以下为：centOS 6.5关闭防火墙步骤</span></span><br><span class="line"><span class="comment">#关闭命令：  </span></span><br><span class="line">service iptables stop </span><br><span class="line"><span class="comment">#永久关闭防火墙：</span></span><br><span class="line">chkconfig iptables off</span><br></pre></td></tr></table></figure>
+
+<p>两个命令同时运行，运行完成后查看防火墙关闭状态 </p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">service iptables status</span><br></pre></td></tr></table></figure>
+
+<h3 id="Jenkins-安装"><a href="#Jenkins-安装" class="headerlink" title="Jenkins 安装"></a>Jenkins 安装</h3><p>下载</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt</span><br><span class="line">wget http://mirrors.jenkins.io/war/2.83/jenkins.war</span><br></pre></td></tr></table></figure>
+
+<p>启动服务</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java -jar jenkins.war &amp;</span><br></pre></td></tr></table></figure>
+
+<p>Jenkins 就启动成功了！它的war包自带Jetty服务器</p>
+<p>第一次启动 Jenkins 时，出于安全考虑，Jenkins 会自动生成一个随机的按照口令。<strong>注意控制台输出的口令，复制下来</strong>，然后在浏览器输入密码：</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">INFO: </span><br><span class="line"></span><br><span class="line">*************************************************************</span><br><span class="line">*************************************************************</span><br><span class="line">*************************************************************</span><br><span class="line"></span><br><span class="line">Jenkins initial setup is required. An admin user has been created and a password generated.</span><br><span class="line">Please use the following password to proceed to installation:</span><br><span class="line"></span><br><span class="line">0cca37389e6540c08ce6e4c96f46da0f</span><br><span class="line"></span><br><span class="line">This may also be found at: /root/.jenkins/secrets/initialAdminPassword</span><br><span class="line"></span><br><span class="line">*************************************************************</span><br><span class="line">*************************************************************</span><br><span class="line">*************************************************************</span><br></pre></td></tr></table></figure>
+
+<p>访问<br>浏览器访问：<code>http://localhost:8080/</code></p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/1.png"></p>
+<p>输入：0cca37389e6540c08ce6e4c96f46da0f</p>
+<p>进入用户自定义插件界面，建议选择安装官方推荐插件，因为安装后自己也得安装:</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/2.png"></p>
+<p>接下来是进入插件安装进度界面:</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/3.png"></p>
+<p>插件一次可能不会完全安装成功，可以点击Retry再次安装。直到全部安装成功</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/32.png"></p>
+<p>等待一段时间之后，插件安装完成，配置用户名密码:</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/4.png"></p>
+<p>输入：admin/admin</p>
+<p>系统管理-》全局工具配置  jdk路径，</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/5.png"></p>
+<h2 id="第二步，插件安装和配置"><a href="#第二步，插件安装和配置" class="headerlink" title="第二步，插件安装和配置"></a>第二步，插件安装和配置</h2><p>有很多插件都是选择的默认的安装的，所以现在需要我们安装的插件不多，Git plugin 和 Maven Integration plugin，publish over SSH。</p>
+<p>插件安装：系统管理 &gt; 插件管理 &gt; 可选插件,勾选需要安装的插件，点击直接安装或者下载重启后安装</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/6.png"></p>
+<h3 id="配置全局变量"><a href="#配置全局变量" class="headerlink" title="配置全局变量"></a>配置全局变量</h3><p>系统管理 &gt; 全局工具配置</p>
+<p><strong>JDK</strong></p>
+<p>配置本地 JDK 的路径，去掉勾选自动安装</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/7.png"></p>
+<p><strong>Maven</strong></p>
+<p>配置本地maven的路径，去掉勾选自动安装</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/8.png"></p>
+<p>其它内容可以根据自己的情况选择安装。</p>
+<h3 id="使用密钥方式登录目标发布服务器"><a href="#使用密钥方式登录目标发布服务器" class="headerlink" title="使用密钥方式登录目标发布服务器"></a>使用密钥方式登录目标发布服务器</h3><p>ssh 的配置可使用密钥，也可以使用密码，这里我们使用密钥来配置，在配置之前先配置好jenkins服务器和应用服务器的密钥认证<br><strong>Jenkins服务器</strong>上生成密钥对，使用<code>ssh-keygen -t rsa</code>命令</p>
+<p>输入下面命令 一直回车，一个矩形图形出现就说明成功，在~/.ssh/下会有私钥id_rsa和公钥id_rsa.pub</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh-keygen -t rsa</span><br></pre></td></tr></table></figure>
+
+<p>将<strong>jenkins服务器</strong>的公钥<code>id_rsa.pub</code>中的内容复制到<strong>应用服务器</strong> 的~/.ssh/下的 <code>authorized_keys</code>文件</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ssh-copy-id -i id_rsa.pub 192.168.0.xx</span><br><span class="line">chmod 644 authorized_keys</span><br></pre></td></tr></table></figure>
+
+<p>在<strong>应用服务器</strong>上重启 ssh 服务，<code>service sshd restart</code>现在 Jenkins 服务器可免密码直接登陆应用服务器</p>
+<p>之后在用 ssh B<ip>尝试能否免密登录 B 服务器，如果还是提示需要输入密码，则有以下原因</p>
+<ul>
+<li>a. 非 root 账户可能不支持 ssh 公钥认证（看服务器是否有限制）  </li>
+<li>b. 传过来的公钥文件权限不够，可以给这个文件授权下  chmod 644 authorized_keys  </li>
+<li>c. 使用 root 账户执行 ssh-copy-id -i ~/.ssh/id_rsa.pub <IP> 这个指令的时候如果需要输入密码则要配置sshd_config </li>
+</ul>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vi /etc/ssh/sshd_config</span><br><span class="line"><span class="comment">#内容</span></span><br><span class="line">PermitRootLogin no</span><br></pre></td></tr></table></figure>
+
+<p>修改完后要重启 sshd 服务</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">service sshd restart</span><br></pre></td></tr></table></figure>
+
+<p>最后，如果可以 SSH IP 免密登录成功说明 SSH 公钥认证成功。</p>
+<p><strong>上面这种方式比较复杂，其实在 Jenkins 后台直接添加操作即可，参考下面方式</strong></p>
+<h3 id="使用用户名-密码方式登录目标发布服务器"><a href="#使用用户名-密码方式登录目标发布服务器" class="headerlink" title="使用用户名+密码方式登录目标发布服务器"></a>使用用户名+密码方式登录目标发布服务器</h3><p>(1)点击”高级”展开配置</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/40.png"></p>
+<p>(2)配置SSH的登陆密码</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/41.png"></p>
+<p>配置完成后可点击“Test Configuration”测试到目标主机的连接，出现”success“则成功连接，如果有多台应用服务器，可以点击”增加“，配置多个“SSH Servers” 点击“保存”以保存配置。</p>
+<h2 id="第三步，Push-SSH"><a href="#第三步，Push-SSH" class="headerlink" title="第三步，Push SSH"></a>第三步，Push SSH</h2><p>系统管理 &gt; 系统设置</p>
+<p>选择 Publish over SSH</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/9.png"></p>
+<p>Passphrase 不用设置<br>Path to key 写上生成的ssh路径：<code>/root/.ssh/id_rsa</code></p>
+<p>下面的 SSH Servers 是重点</p>
+<ul>
+<li>Name 随意起名代表这个服务，待会要根据它来选择</li>
+<li>Hostname 配置应用服务器的地址</li>
+<li>Username 配置 linux 登陆用户名</li>
+<li>Remote Directory 不填</li>
+</ul>
+<blockquote>
+<p>点击下方增加可以添加多个应用服务器的地址</p>
+</blockquote>
+<h2 id="jenkins-docker-nodejs项目的自动部署环境"><a href="#jenkins-docker-nodejs项目的自动部署环境" class="headerlink" title="jenkins+docker+nodejs项目的自动部署环境"></a>jenkins+docker+nodejs项目的自动部署环境</h2><p><a target="_blank" rel="noopener" href="https://my.oschina.net/gaochunzhang/blog/2246923">https://my.oschina.net/gaochunzhang/blog/2246923</a></p>
+<ul>
+<li><p>构建环境如果没有Node选项，前往系统管理–Global Tool Configuration设置<br><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com//blog/20190509093550.png"></p>
+</li>
+<li><p>选择构建环境：  </p>
+</li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com//blog/20190509093506.png"></p>
+<ul>
+<li>构建环境<br><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com//blog/20190509093417.png"></li>
+</ul>
+<h2 id="Build-Authorization-Token-Root-Plugin-插件使用说明"><a href="#Build-Authorization-Token-Root-Plugin-插件使用说明" class="headerlink" title="Build Authorization Token Root Plugin 插件使用说明"></a>Build Authorization Token Root Plugin 插件使用说明</h2><p>此插件是用来让你的远程git发布文件通知jenkins的时候允许匿名访问，原本路径为job/NAME/build?token=SECRET。不幸的是，Jenkins按层次结构检查URI，并且访问job/NAME/ 这个的时候需要进行身份验证。</p>
+<p>此插件提供备用URI模式，该模式不受通常的整体或作业读取权限的约束。只需发出Http GET或POST即可buildByToken/build?job=NAME&amp;token=SECRET。无论安全设置如何，匿名用户都可以访问此URI，因此您只需要正确的令牌。</p>
+<p><a target="_blank" rel="noopener" href="https://wiki.jenkins-ci.org/display/JENKINS/Build+Token+Root+Plugin">Build Authorization Token Root Plugin 插件使用说明</a></p>
+<ul>
+<li>使用例子 <code>buildByToken/build?job=NAME&amp;token=SECRET</code></li>
+</ul>
+<h2 id="第四步，部署项目"><a href="#第四步，部署项目" class="headerlink" title="第四步，部署项目"></a>第四步，部署项目</h2><p>首页点击<strong>新建</strong>：输入项目名称</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/10.png"></p>
+<p>下方选择构建一个 Maven 项目，点击确定。</p>
+<p>勾选<strong>丢弃旧的构建</strong>，选择是否备份被替换的旧包。我这里选择备份最近的10个</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/12.png"></p>
+<p>源码管理，选择 SVN，配置 SVN 相关信息，点击 add 可以输入 SVN 的账户和密码</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/11.png"></p>
+<p>SVN  地址：<a target="_blank" rel="noopener" href="http://192.168.0.xx/svn/xxx@HEAD,%60@HEAD%60%E6%84%8F%E6%80%9D%E5%8F%96%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC">http://192.168.0.xx/svn/xxx@HEAD,`@HEAD`意思取最新版本</a></p>
+<p>构建环境中勾选“Add timestamps to the Console Output”，代码构建的过程中会将日志打印出来</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/13.png"></p>
+<p>在 Build 中输入打包前的 mvn 命令，如：</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">clean install -Dmaven.test.skip=<span class="literal">true</span> -Ptest</span><br></pre></td></tr></table></figure>
+
+<p>意思是：排除测试的包内容，使用后缀为 test 的配置文件。</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/14.png"></p>
+<p>Post Steps 选择 Run only if build succeeds </p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/15.png"></p>
+<p>点击<strong>Add post-build step</strong>，选择 Send files or execute commands over SSH</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/16.png"></p>
+<p>Name 选择上面配置的 Push SSH</p>
+<p><img src="http://www.itmind.net/assets/images/2017/jenkins/17.png"></p>
+<p>Source files配置:target/xxx-0.0.1-SNAPSHOT.jar 项目jar包名<br>Remove prefix:target/<br>Remote directory:Jenkins-in/ 代码应用服务器的目录地址，<br>Exec command：Jenkins-in/xxx.sh 应用服务器对应的脚本。</p>
+<p>需要在应用服务器创建文件夹：Jenkins-in，在文件夹中复制一下脚本内容：xxx.sh</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">DATE=$(date +%Y%m%d)</span><br><span class="line"><span class="built_in">export</span> JAVA_HOME PATH CLASSPATH</span><br><span class="line">JAVA_HOME=/usr/java/jdk1.8.0_131</span><br><span class="line">PATH=<span class="variable">$JAVA_HOME</span>/bin:<span class="variable">$JAVA_HOME</span>/jre/bin:<span class="variable">$PATH</span></span><br><span class="line">CLASSPATH=.:<span class="variable">$JAVA_HOME</span>/lib:<span class="variable">$JAVA_HOME</span>/jre/lib:<span class="variable">$CLASSPATH</span></span><br><span class="line">DIR=/root/xxx</span><br><span class="line">JARFILE=xxx-0.0.1-SNAPSHOT.jar</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [ ! -d <span class="variable">$DIR</span>/backup ];<span class="keyword">then</span></span><br><span class="line">   mkdir -p <span class="variable">$DIR</span>/backup</span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"><span class="built_in">cd</span> <span class="variable">$DIR</span></span><br><span class="line"></span><br><span class="line">ps -ef | grep <span class="variable">$JARFILE</span> | grep -v grep | awk <span class="string">&#x27;&#123;print $2&#125;&#x27;</span> | xargs <span class="built_in">kill</span> -9</span><br><span class="line">mv <span class="variable">$JARFILE</span> backup/$JARFILE<span class="variable">$DATE</span></span><br><span class="line">mv -f /root/Jenkins-in/<span class="variable">$JARFILE</span> .</span><br><span class="line"></span><br><span class="line">java -jar <span class="variable">$JARFILE</span> &gt; out.log &amp;</span><br><span class="line"><span class="keyword">if</span> [ $? = 0 ];<span class="keyword">then</span></span><br><span class="line">        sleep 30</span><br><span class="line">        tail -n 50 out.log</span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">cd</span> backup/</span><br><span class="line">ls -lt|awk <span class="string">&#x27;NR&gt;5&#123;print $NF&#125;&#x27;</span>|xargs rm -rf</span><br></pre></td></tr></table></figure>
+
+
+
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">#!&#x2F;bin&#x2F;bash</span><br><span class="line">JAR_NAME&#x3D;demo-0.0.1</span><br><span class="line">SERVER_NAME&#x3D;mmly</span><br><span class="line"># 项目目录</span><br><span class="line">JAR_PAHT&#x3D;&#x2F;var&#x2F;jenkins_home&#x2F;workspace&#x2F;mmly&#x2F;target</span><br><span class="line"></span><br><span class="line">echo &quot;查询进程id--》$JAR_NAME&quot;</span><br><span class="line"></span><br><span class="line">PID&#x3D;$(ps -ef | grep $JAR_NAME.jar | grep -v grep | awk &#39;&#123; print $2 &#125;&#39;)</span><br><span class="line">if [ -z &quot;$PID&quot; ]</span><br><span class="line">then</span><br><span class="line">    echo Application is already stopped</span><br><span class="line">else</span><br><span class="line">    echo kill $PID</span><br><span class="line">    kill $PID</span><br><span class="line">fi</span><br><span class="line"></span><br><span class="line"># echo &quot;复制jar包到执行目录：cp &quot;</span><br><span class="line"></span><br><span class="line">nohup java -jar $JAR_PAHT&#x2F;$JAR_NAME.jar &gt; myout.file 2&gt;&amp;1 &amp;</span><br></pre></td></tr></table></figure>
+<p>这段脚本的意思，就是 kill 旧项目，删除旧项目，启动新项目，备份老项目。</p>
+<p>全文完。</p>
+<p>参考：<a target="_blank" rel="noopener" href="https://blog.csdn.net/LLQ_200/article/details/76921487">https://blog.csdn.net/LLQ_200/article/details/76921487</a></p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>jenkins</p><p><a href="http://ityouknow.cn/2019/04/25/jenkins/">http://ityouknow.cn/2019/04/25/jenkins/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>RolandLee</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2019-04-25</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-12-19</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icon" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a><a class="icon" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a><a class="icon" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/SpringBoot/">SpringBoot</a></div><div class="bdsharebuttonbox"><a class="bds_more" href="#" data-cmd="more"></a><a class="bds_qzone" href="#" data-cmd="qzone" title="分享到QQ空间"></a><a class="bds_tsina" href="#" data-cmd="tsina" title="分享到新浪微博"></a><a class="bds_tqq" href="#" data-cmd="tqq" title="分享到腾讯微博"></a><a class="bds_renren" href="#" data-cmd="renren" title="分享到人人网"></a><a class="bds_weixin" href="#" data-cmd="weixin" title="分享到微信"></a></div><script>window._bd_share_config = { "common": { "bdSnsKey": {}, "bdText": "", "bdMini": "2", "bdPic": "", "bdStyle": "0", "bdSize": "16" }, "share": {} }; with (document) 0[(getElementsByTagName('head')[0] || body).appendChild(createElement('script')).src = 'http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion=' + ~(-new Date() / 36e5)];</script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/" alt="支付宝"></span></a><a class="button donate" href="/" target="_blank" rel="noopener" data-type="buymeacoffee"><span class="icon is-small"><i class="fas fa-coffee"></i></span><span>送我杯咖啡</span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/2019/04/29/%E8%A7%A3%E5%86%B3git-push%E4%BB%A3%E7%A0%81%E5%88%B0github%E4%B8%8A%E4%B8%80%E7%9B%B4%E6%8F%90%E7%A4%BA%E8%BE%93%E5%85%A5%E7%94%A8%E6%88%B7%E5%90%8D%E5%8F%8A%E5%AF%86%E7%A0%81%E7%9A%84%E9%97%AE%E9%A2%98/"><i class="level-item fas fa-chevron-left"></i><span class="level-item">解决git push代码到github上一直提示输入用户名及密码的问题</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2019/04/25/docker%E5%91%BD%E4%BB%A4/"><span class="level-item">docker命令</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div id="comment-container"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.css"><script src="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script><script>var gitalk = new Gitalk({
+            id: "93670386408cf9ea8fd8b634ecb7d343",
+            repo: "yunlongn.github.io",
+            owner: "yunlongn",
+            clientID: "fb8ffef00dff08ccb06c",
+            clientSecret: "935a05558f847f4321d3c64b4c0c2498697a2bda",
+            admin: "yunlongn",
+            createIssueManually: false,
+            distractionFreeMode: false,
+            perPage: 10,
+            pagerDirection: "last",
+            
+            
+            enableHotKey: true,
+            
+        })
+        gitalk.render('comment-container')</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar" src="/img/avatar.png" alt="云扬四海"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">云扬四海</p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">77</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">24</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">29</p></a></div></div></nav><div class="level"><a class="level-item button is-primary is-rounded" href="http://github.com/yunlongn" target="_blank" rel="noopener">关注我</a></div><div class="level is-mobile"><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Github" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="cnblogs" href="https://www.cnblogs.com/rolandlee/"><i class="fas fa-book"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="RSS" href="/atom.xml"><i class="fas fa-rss"></i></a></div></div></div><!--!--><div class="card widget" data-type="tagscloud" style="transition: opacity 0.3s ease-out 0s, transform 0.3s ease-out 0s; opacity: 1; transform-origin: center top;"><div class="card-content" id="tags"><h3 class="menu-label">标签云</h3><a href="/tags/JVM/" style="color:rgb(154,167,107);font-size:14px">JVM<span class="tag-cloud-count">(1) </span></a><a href="/tags/Java/" style="color:rgb(183,125,103);font-size:21px">Java<span class="tag-cloud-count">(5) </span></a><a href="/tags/Mysql/" style="color:rgb(164,106,106);font-size:17px">Mysql<span class="tag-cloud-count">(18) </span></a><a href="/tags/Netty/" style="color:rgb(194,127,132);font-size:16px">Netty<span class="tag-cloud-count">(1) </span></a><a href="/tags/Nginx/" style="color:rgb(162,156,126);font-size:16px">Nginx<span class="tag-cloud-count">(1) </span></a><a href="/tags/SpringBoot/" style="color:rgb(186,105,136);font-size:19px">SpringBoot<span class="tag-cloud-count">(2) </span></a><a href="/tags/heroku/" style="color:rgb(178,126,92);font-size:18px">heroku<span class="tag-cloud-count">(1) </span></a><a href="/tags/java/" style="color:rgb(156,131,113);font-size:19px">java<span class="tag-cloud-count">(1) </span></a><a href="/tags/java%E5%9F%BA%E7%A1%80/" style="color:rgb(175,139,154);font-size:17px">java基础<span class="tag-cloud-count">(2) </span></a><a href="/tags/java%E6%A0%B8%E5%BF%83/" style="color:rgb(138,168,101);font-size:22px">java核心<span class="tag-cloud-count">(1) </span></a><a href="/tags/linux/" style="color:rgb(148,157,99);font-size:22px">linux<span class="tag-cloud-count">(1) </span></a><a href="/tags/mq/" style="color:rgb(141,111,98);font-size:22px">mq<span class="tag-cloud-count">(1) </span></a><a href="/tags/mybatisPlus/" style="color:rgb(149,147,81);font-size:22px">mybatisPlus<span class="tag-cloud-count">(1) </span></a><a href="/tags/nio/" style="color:rgb(143,138,105);font-size:15px">nio<span class="tag-cloud-count">(1) </span></a><a href="/tags/servlet/" style="color:rgb(182,111,117);font-size:17px">servlet<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BA%8B%E5%8A%A1/" style="color:rgb(136,114,84);font-size:14px">事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BF%A1%E5%8F%B7%E9%87%8F/" style="color:rgb(132,109,89);font-size:18px">信号量<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" style="color:rgb(131,162,111);font-size:16px">分布式事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9B%BE%E7%89%87%E8%AF%86%E5%88%AB/" style="color:rgb(133,136,150);font-size:13px">图片识别<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9F%BA%E6%9C%AC%E5%91%BD%E4%BB%A4/" style="color:rgb(131,164,115);font-size:20px">基本命令<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/" style="color:rgb(150,102,95);font-size:13px">小程序<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B7%A5%E5%85%B7/" style="color:rgb(146,117,136);font-size:15px">工具<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%80%A7%E8%83%BD/" style="color:rgb(157,129,106);font-size:21px">性能<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%8A%80%E5%B7%A7/" style="color:rgb(152,144,89);font-size:18px">技巧<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E7%AD%BE%E5%90%8D/" style="color:rgb(181,126,117);font-size:15px">签名<span class="tag-cloud-count">(2) </span></a><a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="color:rgb(188,140,129);font-size:22px">设计模式<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/" style="color:rgb(149,103,88);font-size:17px">读书笔记<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%98%B2%E7%9B%97%E9%93%BE/" style="color:rgb(130,100,110);font-size:18px">防盗链<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="color:rgb(176,165,114);font-size:16px">面试<span class="tag-cloud-count">(1) </span></a></div></div><div class="card widget" data-type="links"><div class="card-content"><div class="menu"><h3 class="menu-label">链接</h3><ul class="menu-list"><li><a class="level is-mobile" href="http://www.ityouknow.com" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">纯洁的微笑</span></span><span class="level-right"><span class="level-item tag">www.ityouknow.com</span></span></a></li><li><a class="level is-mobile" href="https://blog.52itstyle.vip/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">柒&#039;s</span></span><span class="level-right"><span class="level-item tag">blog.52itstyle.vip</span></span></a></li><li><a class="level is-mobile" href="https://www.wdk.pw/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">王登科</span></span><span class="level-right"><span class="level-item tag">www.wdk.pw</span></span></a></li></ul></div></div></div></div><!--!--></div></div></section><embed src="/img/footer.svg" id="galinv" type="image/svg+xml"><footer class="footer"><div class="footer-image"><img src="/img/o_cnblogs_footer.png" width="60%"></div><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/">云扬四海</a><p class="is-size-7"><span>&copy; 2025 RolandLee</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/yunlongn"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" async></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>

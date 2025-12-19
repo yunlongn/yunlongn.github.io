@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>MySQL五：InnoDB线程模型 - 云扬四海</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="云扬四海"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="云扬四海"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta description="一、InnoDB线程模型的组成在Innodb存储引擎中，后台线程的主要作用是「负责刷新内存池中的数据，保证缓冲池中的内存缓存的是最近的数据」。此外它会将已经修改的数据文件刷新到磁盘文件中，保证在发生异常的情况下，Innodb能够恢复到正常的运行状态。"><meta property="og:type" content="blog"><meta property="og:title" content="MySQL五：InnoDB线程模型"><meta property="og:url" content="http://ityouknow.cn/2021/08/06/MySQL%E4%BA%94%EF%BC%9AInnoDB%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/"><meta property="og:site_name" content="云扬四海"><meta property="og:description" content="一、InnoDB线程模型的组成在Innodb存储引擎中，后台线程的主要作用是「负责刷新内存池中的数据，保证缓冲池中的内存缓存的是最近的数据」。此外它会将已经修改的数据文件刷新到磁盘文件中，保证在发生异常的情况下，Innodb能够恢复到正常的运行状态。"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123754.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123716.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123708.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123712.png"><meta property="article:published_time" content="2021-08-06T08:05:00.000Z"><meta property="article:modified_time" content="2025-12-19T06:50:33.434Z"><meta property="article:author" content="yunlongn"><meta property="article:tag" content="Mysql"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123754.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://ityouknow.cn/2021/08/06/MySQL%E4%BA%94%EF%BC%9AInnoDB%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/"},"headline":"云扬四海","image":["https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123754.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123716.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123708.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123712.png"],"datePublished":"2021-08-06T08:05:00.000Z","dateModified":"2025-12-19T06:50:33.434Z","author":{"@type":"Person","name":"yunlongn"},"description":"一、InnoDB线程模型的组成在Innodb存储引擎中，后台线程的主要作用是「负责刷新内存池中的数据，保证缓冲池中的内存缓存的是最近的数据」。此外它会将已经修改的数据文件刷新到磁盘文件中，保证在发生异常的情况下，Innodb能够恢复到正常的运行状态。"}</script><link rel="canonical" href="http://ityouknow.cn/2021/08/06/MySQL%E4%BA%94%EF%BC%9AInnoDB%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.8.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css"><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script><!--!--><!--!--><meta name="generator" content="Hexo 5.4.2"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/">云扬四海</a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">首页</a><a class="navbar-item" href="/archives">列表</a><a class="navbar-item" href="/categories">类别</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a><a class="navbar-item" href="/yun/fireworks/index.html">fireworks</a><a class="navbar-item" href="/yun/Photo_Wall3D.html">photoWall3D</a><a class="navbar-item" href="/yun/sheep.html">sheep</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-9-tablet is-9-desktop is-9-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2021-08-06T08:05:00.000Z" title="2021-08-06T08:05:00.000Z">2021-08-06</time>发表</span><span class="level-item"><time dateTime="2025-12-19T06:50:33.434Z" title="2025-12-19T06:50:33.434Z">2025-12-19</time>更新</span><span class="level-item"> yunlongn </span><span class="level-item"><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a><span> / </span><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Mysql/">Mysql</a></span><span class="level-item">6 分钟读完 (大约959个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">MySQL五：InnoDB线程模型</h1><div class="content"><h2 id="一、InnoDB线程模型的组成"><a href="#一、InnoDB线程模型的组成" class="headerlink" title="一、InnoDB线程模型的组成"></a><strong>一、InnoDB线程模型的组成</strong></h2><p>在Innodb存储引擎中，后台线程的主要作用是<strong>「负责刷新内存池中的数据，保证缓冲池中的内存缓存的是最近的数据」</strong>。此外它会将已经修改的数据文件刷新到磁盘文件中，保证在发生异常的情况下，Innodb能够恢复到正常的运行状态。</p>
+<span id="more"></span>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123754.png" alt="图片"></p>
+<p><strong>「InnoDB存储引擎是多线程的模型，所以有多个不同的后台线程，负责处理不同的任务」</strong>。主要有：</p>
+<p>Master Thread、IO Thread、Purge Thread、Page Cleaner Thread四种。<img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<h2 id="二-Master-Thread"><a href="#二-Master-Thread" class="headerlink" title="二 Master Thread"></a><strong>二 Master Thread</strong></h2><p><strong>「Master thread是InnoDB的主线程，负责调度其他各线程，优先级最高」</strong>。</p>
+<ul>
+<li><p><strong>「主要作用」</strong></p>
+<p>将缓冲池中的数据一步刷新到磁盘，保证数据的一致性。</p>
+</li>
+<li><p><strong>「主要工作」</strong></p>
+<p>脏页的刷新（page cleaner thread）、undo页回收（purge thread）、redo日志刷新（log thread）、合并写缓冲等。</p>
+</li>
+</ul>
+<p>Master thread内部有两个主要处理时机，分别是每隔1秒和10秒处理。</p>
+<ul>
+<li><p>每隔1秒</p>
+</li>
+<li><ul>
+<li><p>innodb_max_dirty_pages_pct</p>
+</li>
+<li><p>innodb_io_capacity</p>
+<p>合并插入缓冲时,每秒合并插入缓冲的数量为 innodb_io_capacity值的5%，默认就是 200*5%=10</p>
+<p>在从缓冲区刷新脏页时,每秒刷新脏页的数量就等于innodb_io_capacity的值，默认200</p>
+</li>
+<li><p>刷新日志缓冲区，刷到磁盘</p>
+</li>
+<li><p>合并写缓冲区数据，根据IO读写压力来决定是否操作</p>
+</li>
+<li><p>刷新脏页数据到磁盘，根据脏页比例达到75%才操作，此处涉及两个参数</p>
+<blockquote>
+<p>脏页比例通过innodb_max_dirty_pages_pct配置，innodb_max_dirty_pages_pct参数值保存在变量srv_max_buf_pool_modified_pct 里面，这是一个全局变量，初始值为 75.0</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li><p>每隔10秒</p>
+</li>
+<li><ul>
+<li>刷新脏页数据到磁盘</li>
+<li>合并写缓冲区数据</li>
+<li>刷新日志缓冲区</li>
+<li>删除无用的undo页</li>
+</ul>
+</li>
+</ul>
+<h2 id="三、-IO-Thread"><a href="#三、-IO-Thread" class="headerlink" title="三、 IO Thread"></a><strong>三、 IO Thread</strong></h2><p><strong>「为了提高数据库的性能，在InnoDB中使用了大量的AIO（Async IO）来做读写处理」</strong>。</p>
+<p>一共有4种总共10个IO Thread：</p>
+<ul>
+<li><p><strong>「read thread」</strong>（4个）</p>
+<p>负责读取操作，将数据从磁盘加载到Buffer Pool的Page页。</p>
+</li>
+<li><p><strong>「write thread」</strong>（4个）</p>
+<p>负责写操作，将Buffer Pool的dirty page刷新到磁盘。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show variables like &quot;%innodb%io_threads%&quot;;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li><p><strong>「log thread」</strong>（1个）</p>
+<p>负责将Log Buffer内容刷新到磁盘。</p>
+</li>
+<li><p><strong>「insert buffer thread」</strong>（1个）</p>
+<p>负责将Change Buffer内容刷新到磁盘。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#查看当前IO线程的工作状态</span><br><span class="line">show engine innodb status;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123716.png" alt="图片"></p>
+<h2 id="四-Purge-Thread"><a href="#四-Purge-Thread" class="headerlink" title="四 Purge Thread"></a><strong>四 Purge Thread</strong></h2><p>事务提交之后，其使用的undo日志将不再需要，因此需要Purge Thread回收已经分配的undo 页。</p>
+<blockquote>
+<p>早前的版本只支持一个Purge Thread，目前mysql 5.7版本支持多个Purge Thread，目的是为了进一步加快undo数据页的回收速度。</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show variables like &#39;%innodb_purge_threads%&#39;;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123708.png" alt="图片"></p>
+<h2 id="五-Page-Cleaner-Thread"><a href="#五-Page-Cleaner-Thread" class="headerlink" title="五 Page Cleaner Thread"></a><strong>五 Page Cleaner Thread</strong></h2><p><strong>「作用是将脏数据放入到单独的线程中刷新到磁盘，脏数据刷盘后相应的redo log也就可以覆盖，即可以同步数据，又能达到redo log循环使用的目的」</strong>。</p>
+<p>减轻原来的Master Thread的工作，同时可以缓解用户查询线程的阻塞，进一步提高Innodb 存储引擎的性能。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show variables like &#39;%innodb_page_cleaners%&#39;;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061123712.png" alt="图片"></p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>MySQL五：InnoDB线程模型</p><p><a href="http://ityouknow.cn/2021/08/06/MySQL%E4%BA%94%EF%BC%9AInnoDB%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/">http://ityouknow.cn/2021/08/06/MySQL%E4%BA%94%EF%BC%9AInnoDB%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>yunlongn</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2021-08-06</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-12-19</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icon" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a><a class="icon" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a><a class="icon" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/Mysql/">Mysql</a></div><div class="bdsharebuttonbox"><a class="bds_more" href="#" data-cmd="more"></a><a class="bds_qzone" href="#" data-cmd="qzone" title="分享到QQ空间"></a><a class="bds_tsina" href="#" data-cmd="tsina" title="分享到新浪微博"></a><a class="bds_tqq" href="#" data-cmd="tqq" title="分享到腾讯微博"></a><a class="bds_renren" href="#" data-cmd="renren" title="分享到人人网"></a><a class="bds_weixin" href="#" data-cmd="weixin" title="分享到微信"></a></div><script>window._bd_share_config = { "common": { "bdSnsKey": {}, "bdText": "", "bdMini": "2", "bdPic": "", "bdStyle": "0", "bdSize": "16" }, "share": {} }; with (document) 0[(getElementsByTagName('head')[0] || body).appendChild(createElement('script')).src = 'http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion=' + ~(-new Date() / 36e5)];</script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/" alt="支付宝"></span></a><a class="button donate" href="/" target="_blank" rel="noopener" data-type="buymeacoffee"><span class="icon is-small"><i class="fas fa-coffee"></i></span><span>送我杯咖啡</span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/2021/08/06/MySQL%E5%85%AD%EF%BC%9AInnoDB%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6/"><i class="level-item fas fa-chevron-left"></i><span class="level-item">MySQL六：InnoDB数据文件</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2021/08/06/MySQL%E5%9B%9B%EF%BC%9AInnoDB%E7%9A%84%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84/"><span class="level-item">MySQL四：InnoDB的存储结构</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div id="comment-container"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.css"><script src="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script><script>var gitalk = new Gitalk({
+            id: "13371511cab326be7454e1084df926f0",
+            repo: "yunlongn.github.io",
+            owner: "yunlongn",
+            clientID: "fb8ffef00dff08ccb06c",
+            clientSecret: "935a05558f847f4321d3c64b4c0c2498697a2bda",
+            admin: "yunlongn",
+            createIssueManually: false,
+            distractionFreeMode: false,
+            perPage: 10,
+            pagerDirection: "last",
+            
+            
+            enableHotKey: true,
+            
+        })
+        gitalk.render('comment-container')</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar" src="/img/avatar.png" alt="云扬四海"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">云扬四海</p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">77</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">24</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">29</p></a></div></div></nav><div class="level"><a class="level-item button is-primary is-rounded" href="http://github.com/yunlongn" target="_blank" rel="noopener">关注我</a></div><div class="level is-mobile"><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Github" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="cnblogs" href="https://www.cnblogs.com/rolandlee/"><i class="fas fa-book"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="RSS" href="/atom.xml"><i class="fas fa-rss"></i></a></div></div></div><!--!--><div class="card widget" data-type="tagscloud" style="transition: opacity 0.3s ease-out 0s, transform 0.3s ease-out 0s; opacity: 1; transform-origin: center top;"><div class="card-content" id="tags"><h3 class="menu-label">标签云</h3><a href="/tags/JVM/" style="color:rgb(150,135,90);font-size:13px">JVM<span class="tag-cloud-count">(1) </span></a><a href="/tags/Java/" style="color:rgb(178,102,93);font-size:15px">Java<span class="tag-cloud-count">(5) </span></a><a href="/tags/Mysql/" style="color:rgb(168,155,154);font-size:16px">Mysql<span class="tag-cloud-count">(18) </span></a><a href="/tags/Netty/" style="color:rgb(157,124,151);font-size:18px">Netty<span class="tag-cloud-count">(1) </span></a><a href="/tags/Nginx/" style="color:rgb(152,141,154);font-size:22px">Nginx<span class="tag-cloud-count">(1) </span></a><a href="/tags/SpringBoot/" style="color:rgb(164,102,137);font-size:14px">SpringBoot<span class="tag-cloud-count">(2) </span></a><a href="/tags/heroku/" style="color:rgb(171,101,120);font-size:16px">heroku<span class="tag-cloud-count">(1) </span></a><a href="/tags/java/" style="color:rgb(185,104,137);font-size:17px">java<span class="tag-cloud-count">(1) </span></a><a href="/tags/java%E5%9F%BA%E7%A1%80/" style="color:rgb(180,174,135);font-size:20px">java基础<span class="tag-cloud-count">(2) </span></a><a href="/tags/java%E6%A0%B8%E5%BF%83/" style="color:rgb(136,145,80);font-size:16px">java核心<span class="tag-cloud-count">(1) </span></a><a href="/tags/linux/" style="color:rgb(151,147,140);font-size:15px">linux<span class="tag-cloud-count">(1) </span></a><a href="/tags/mq/" style="color:rgb(135,170,131);font-size:18px">mq<span class="tag-cloud-count">(1) </span></a><a href="/tags/mybatisPlus/" style="color:rgb(141,116,139);font-size:21px">mybatisPlus<span class="tag-cloud-count">(1) </span></a><a href="/tags/nio/" style="color:rgb(167,173,111);font-size:15px">nio<span class="tag-cloud-count">(1) </span></a><a href="/tags/servlet/" style="color:rgb(138,120,119);font-size:13px">servlet<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BA%8B%E5%8A%A1/" style="color:rgb(185,108,134);font-size:15px">事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BF%A1%E5%8F%B7%E9%87%8F/" style="color:rgb(189,103,138);font-size:17px">信号量<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" style="color:rgb(183,150,109);font-size:17px">分布式事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9B%BE%E7%89%87%E8%AF%86%E5%88%AB/" style="color:rgb(194,142,118);font-size:21px">图片识别<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9F%BA%E6%9C%AC%E5%91%BD%E4%BB%A4/" style="color:rgb(185,170,88);font-size:21px">基本命令<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/" style="color:rgb(152,140,105);font-size:16px">小程序<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B7%A5%E5%85%B7/" style="color:rgb(162,135,121);font-size:21px">工具<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%80%A7%E8%83%BD/" style="color:rgb(134,107,143);font-size:16px">性能<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%8A%80%E5%B7%A7/" style="color:rgb(185,115,111);font-size:17px">技巧<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E7%AD%BE%E5%90%8D/" style="color:rgb(147,148,108);font-size:21px">签名<span class="tag-cloud-count">(2) </span></a><a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="color:rgb(178,133,113);font-size:20px">设计模式<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/" style="color:rgb(139,169,144);font-size:14px">读书笔记<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%98%B2%E7%9B%97%E9%93%BE/" style="color:rgb(182,151,128);font-size:16px">防盗链<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="color:rgb(184,129,81);font-size:14px">面试<span class="tag-cloud-count">(1) </span></a></div></div><div class="card widget" data-type="links"><div class="card-content"><div class="menu"><h3 class="menu-label">链接</h3><ul class="menu-list"><li><a class="level is-mobile" href="http://www.ityouknow.com" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">纯洁的微笑</span></span><span class="level-right"><span class="level-item tag">www.ityouknow.com</span></span></a></li><li><a class="level is-mobile" href="https://blog.52itstyle.vip/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">柒&#039;s</span></span><span class="level-right"><span class="level-item tag">blog.52itstyle.vip</span></span></a></li><li><a class="level is-mobile" href="https://www.wdk.pw/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">王登科</span></span><span class="level-right"><span class="level-item tag">www.wdk.pw</span></span></a></li></ul></div></div></div></div><!--!--></div></div></section><embed src="/img/footer.svg" id="galinv" type="image/svg+xml"><footer class="footer"><div class="footer-image"><img src="/img/o_cnblogs_footer.png" width="60%"></div><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/">云扬四海</a><p class="is-size-7"><span>&copy; 2025 yunlongn</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/yunlongn"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" async></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
