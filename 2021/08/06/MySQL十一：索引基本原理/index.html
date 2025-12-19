@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>MySQL(十一)：索引基本原理 - 云扬四海</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="云扬四海"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="云扬四海"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta description="在上一篇《索引基础知识回顾》中提到索引按照存储结构划分有B-Tree索引、Hash索引、B+Tree索引类型，接下来就学习一下这几种索引结构以及在实际存储引擎中的使用情况 一、Hash索引"><meta property="og:type" content="blog"><meta property="og:title" content="MySQL(十一)：索引基本原理"><meta property="og:url" content="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%B8%80%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%9F%BA%E6%9C%AC%E5%8E%9F%E7%90%86/"><meta property="og:site_name" content="云扬四海"><meta property="og:description" content="在上一篇《索引基础知识回顾》中提到索引按照存储结构划分有B-Tree索引、Hash索引、B+Tree索引类型，接下来就学习一下这几种索引结构以及在实际存储引擎中的使用情况 一、Hash索引"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128118.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128147.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128142.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128158.png"><meta property="article:published_time" content="2021-08-06T08:11:00.000Z"><meta property="article:modified_time" content="2025-12-19T06:50:33.436Z"><meta property="article:author" content="yunlongn"><meta property="article:tag" content="Mysql"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128118.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%B8%80%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%9F%BA%E6%9C%AC%E5%8E%9F%E7%90%86/"},"headline":"云扬四海","image":["https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128118.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128147.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128142.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128158.png"],"datePublished":"2021-08-06T08:11:00.000Z","dateModified":"2025-12-19T06:50:33.436Z","author":{"@type":"Person","name":"yunlongn"},"description":"在上一篇《索引基础知识回顾》中提到索引按照存储结构划分有B-Tree索引、Hash索引、B+Tree索引类型，接下来就学习一下这几种索引结构以及在实际存储引擎中的使用情况 一、Hash索引"}</script><link rel="canonical" href="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%B8%80%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%9F%BA%E6%9C%AC%E5%8E%9F%E7%90%86/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.8.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css"><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script><!--!--><!--!--><meta name="generator" content="Hexo 5.4.2"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/">云扬四海</a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">首页</a><a class="navbar-item" href="/archives">列表</a><a class="navbar-item" href="/categories">类别</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a><a class="navbar-item" href="/yun/fireworks/index.html">fireworks</a><a class="navbar-item" href="/yun/Photo_Wall3D.html">photoWall3D</a><a class="navbar-item" href="/yun/sheep.html">sheep</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-9-tablet is-9-desktop is-9-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2021-08-06T08:11:00.000Z" title="2021-08-06T08:11:00.000Z">2021-08-06</time>发表</span><span class="level-item"><time dateTime="2025-12-19T06:50:33.436Z" title="2025-12-19T06:50:33.436Z">2025-12-19</time>更新</span><span class="level-item"> yunlongn </span><span class="level-item"><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a><span> / </span><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Mysql/">Mysql</a></span><span class="level-item">16 分钟读完 (大约2433个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">MySQL(十一)：索引基本原理</h1><div class="content"><p>在上一篇<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247486017&idx=1&sn=c13f2e5fbd475f118333a1729d1361ad&scene=21#wechat_redirect">《索引基础知识回顾》</a>中提到索引按照存储结构划分有B-Tree索引、Hash索引、B+Tree索引类型，接下来就学习一下这几种索引结构以及在实际存储引擎中的使用情况</p>
+<h2 id="一、Hash索引"><a href="#一、Hash索引" class="headerlink" title="一、Hash索引"></a><strong>一、Hash索引</strong></h2><span id="more"></span>
+<p><strong>「Hash底层是由Hash表来实现的，存储引擎都会【对所有的索引列计算一个哈希码】（hash code），哈希索引将所有的哈希码存储在索引中，同时在哈希表中保存指向每个数据行的指针，根据键值 &lt;key,value&gt; 存储数据的结构存储&lt;哈希码,指针&gt;，非常适合根据key查找value值，也就是等值查询（单个key查询）」</strong>。其结构如下所示：</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128118.png" alt="图片"></p>
+<ul>
+<li><p><strong>「Hash索引优缺点」</strong></p>
+</li>
+<li><p>哈希表按值查询的性能很好，时间复杂度是O(1)，在等值查询的时候hash索引要比B+ 树索引更高效，</p>
+</li>
+<li><p><strong>「Hash索引缺点」</strong></p>
+<blockquote>
+<p>这也是为什么用树，而不用哈希表的原因</p>
+</blockquote>
+</li>
+<li><ul>
+<li>存在 hash 冲突问题</li>
+<li>仅能支持【等值查询】，当查询条件为【范围查找（如：in）】就会全表扫描。</li>
+</ul>
+</li>
+</ul>
+<p>Hash索引在MySQL 中Hash结构主要应用在Memory原生的Hash索引 、InnoDB 自适应哈希索引。在<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485666&idx=1&sn=dc06d531d29d8916f53954be63710f9d&scene=21#wechat_redirect">《InnoDB的存储结构》</a>已经介绍过自适应哈希索引，这里不再赘述。</p>
+<h2 id="二、B-Tree索引"><a href="#二、B-Tree索引" class="headerlink" title="二、B-Tree索引"></a><strong>二、B-Tree索引</strong></h2><p><strong>「平衡多路查找树（B-Tree）：是为磁盘等外存储设备设计的一种平衡查找树」</strong>。</p>
+<blockquote>
+<p><strong>「我们知道在InnoDB存储引擎中页是其磁盘管理的最小单位，默认是16KB，而系统一个磁盘块的存储空间没有这么大，因此InnoDB每次申请磁盘空间时都会申请若干地址连续磁盘块来达到页的大小16KB。在查询时如果数据都在一个页中，会减少磁盘I/O次数，提高查询效率。」</strong></p>
+</blockquote>
+<p><strong>「B-Tree结构的数据可以让系统高效的找到数据所在的磁盘块」</strong>。它每个节点根据实际情况可以包含大量的关键字信息和分支，下图为一个3阶的B-Tree：</p>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<p>由上图中可以看出B-Tree有如下<strong>「特征」</strong>：</p>
+<ul>
+<li><p>每个节点占用一个磁盘块的磁盘空间</p>
+</li>
+<li><p>一个节点上有两个升序排序的关键字和三个指向子树根节点的指针</p>
+</li>
+<li><ul>
+<li>指针存储的是子节点所在磁盘块的地址</li>
+<li>两个关键字划分成的三个范围域对应三个指针指向的子树的数据的范围域</li>
+</ul>
+</li>
+</ul>
+<p>模拟查找关键字29的过程：</p>
+<ul>
+<li><p>根据根节点找到磁盘块1，读入内存。【磁盘I/O操作第1次】</p>
+<blockquote>
+<p>关键字为17和35，P1指针指向的子树的数据范围为小于17，P2指针指向的子树的数据范围为17~35，P3指针指向的子树的数据范围为大于35。</p>
+</blockquote>
+</li>
+<li><p>比较关键字29在区间（17,35），找到磁盘块1的指针P2。</p>
+</li>
+<li><p>根据P2指针找到磁盘块3，读入内存。【磁盘I/O操作第2次】</p>
+</li>
+<li><p>比较关键字29在区间（26,30），找到磁盘块3的指针P2。</p>
+</li>
+<li><p>根据P2指针找到磁盘块8，读入内存。【磁盘I/O操作第3次】</p>
+</li>
+<li><p>在磁盘块8中的关键字列表中找到关键字29。</p>
+</li>
+</ul>
+<p>通过以上过程，我们查找29，只需要三次IO，<strong>「而3阶的B-Tree可以容纳百万级数据，这对查询性能的提升是巨大的」</strong>。如果没有索引，每个数据项都要发生一次IO，总共需要百万次的IO，显然成本非常非常高。</p>
+<h2 id="三、B-Tree索引"><a href="#三、B-Tree索引" class="headerlink" title="三、B+Tree索引"></a><strong>三、B+Tree索引</strong></h2><p><strong>「B+Tree是在B-Tree基础上的一种优化，使其更适合实现外存储索引结构，InnoDB存储引擎就是用B+Tree实现其索引结构」</strong>。</p>
+<blockquote>
+<p>在上述中提到数据页的存储空间默认是16KB，而B-Tree结构图中可以看到每个节点中不仅包含数据的key值，还有data值。当数据较大时，一个节点（即一个页）能存储的key的数量就会很小，导致B-Tree的深度变大，增大查询时的磁盘I/O次数，进而影响查询效率。</p>
+</blockquote>
+<p>对此，<strong>「B+Tree进行了优化，将所有数据都是按照键值大小顺序存放在同一层的叶子节点上，非叶子节点上只存储key值，以此增大每个节点存储的key值数量，降低B+Tree的高度」</strong>。下图为一个3阶的B+Tree：</p>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<p>通过示意图可以看出<strong>「B+Tree不仅仅将数据存放在叶子结点，而且所有叶子节点（数据节点）之间都有一个链指针，从而方便叶子节点的范围遍历」</strong>。特征如下：</p>
+<ul>
+<li>所有关键字都<strong>「有序的」</strong>出现在叶子结点的链表中（稠密索引）。</li>
+<li>非叶子结点相当于是叶子结点的索引（稀疏索引），叶子结点相当于是存储（关键字）数据的数据层。</li>
+<li>每一个叶子节点都包含指向下一个叶子节点的指针，从而方便叶子节点的范围遍历。</li>
+</ul>
+<h2 id="四、MySQL索引实现"><a href="#四、MySQL索引实现" class="headerlink" title="四、MySQL索引实现"></a><strong>四、MySQL索引实现</strong></h2><p><strong>「MySQL中索引属于存储引擎级别的概念，MyISAM和InnoDB都是使用B+Tree作为索引结构，但是不同存储引擎对索引的实现方式不同」</strong>。</p>
+<h3 id="4-1-MyISAM索引实现"><a href="#4-1-MyISAM索引实现" class="headerlink" title="4.1 MyISAM索引实现"></a>4.1 MyISAM索引实现</h3><p>在<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485575&idx=1&sn=71b709d073e83b5b0239edc2fa83a307&scene=21#wechat_redirect">《存储引擎》</a>一文中介绍到MyISAM针对每个表有两个文件：<strong>「一个.frm表结构文件，一个MYD表数据文件，一个.MYI索引文件」</strong>。数据和索引是分开存储的。</p>
+<p><strong>「MyISAM使用B+Tree作为索引结构时，.MYI索引文件的叶节点的data域存放的是数据记录的地址」</strong>。</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128147.png" alt="图片"></p>
+<blockquote>
+<p>按照示意图：MyISAM在索引检索时首先按照B+Tree搜索算法搜索索引，如果指定的Key存在，则取出其data域的值，然后以data域的值为地址，读取相应数据记录。</p>
+</blockquote>
+<p><strong>「在MyISAM中，主索引和辅助索引（Secondary key）在结构上没有任何区别，只是主索引要求key是唯一的，而辅助索引的key可以重复」</strong>。<img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128142.png" alt="图片"></p>
+<h3 id="4-2-InnoDB索引实现"><a href="#4-2-InnoDB索引实现" class="headerlink" title="4.2 InnoDB索引实现"></a>4.2 InnoDB索引实现</h3><p>在<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485575&idx=1&sn=71b709d073e83b5b0239edc2fa83a307&scene=21#wechat_redirect">《存储引擎》</a>一文中介绍到InnoDB针对每个表有两个文件：<strong>「一个.frm表结构文件，一个.ibd数据文件」</strong>，数据和索引是一起存储的，定位到了数据也就找到了数据。</p>
+<h4 id="4-2-1聚簇索引（聚集索引）"><a href="#4-2-1聚簇索引（聚集索引）" class="headerlink" title="4.2.1聚簇索引（聚集索引）"></a>4.2.1聚簇索引（聚集索引）</h4><p><strong>「InnoDB的聚簇索引就是按照主键顺序构建 B+Tree结构。叶子节点data域存储了完整的数据记录，行记录和主键值紧凑地存储在一起。即 InnoDB 的主键索引就是数据表本身，它按主键顺序存放了整张表的数据，占用的空间就是整个表数据量的大小。」</strong></p>
+<ul>
+<li><p>InnoDB的表要求必须要有聚簇索引：</p>
+</li>
+<li><ul>
+<li>如果表定义了主键，则主键索引就是聚簇索引</li>
+<li>如果表没有定义主键，则第一个非空unique列作为聚簇索引</li>
+<li>都没有InnoDB会从建一个隐藏的row-id作为聚簇索引</li>
+</ul>
+</li>
+<li><p>聚簇索引示意图：</p>
+</li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<h4 id="4-2-2辅助索引（二级索引）"><a href="#4-2-2辅助索引（二级索引）" class="headerlink" title="4.2.2辅助索引（二级索引）"></a>4.2.2辅助索引（二级索引）</h4><p><strong>「在InnoDB中，主索引和辅助索引（Secondary key）的Data域存储是不同的」</strong>，这与MyISAM是不同的。</p>
+<ul>
+<li><strong>「但在 B+Tree 的叶子节点中只存了【索引列和主键】的信息。二级索引占用的空间会比聚簇索引小很多， 通常创建辅助索引就是为了提升查询效率。一个表InnoDB只能创建一个聚簇索引，但可以创建多个辅助索引」</strong>。</li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<p>如示意图所示，辅助索引索引中data域中存储的是主键，所以辅助索引一般需要两次查找才能查到数据：</p>
+<ul>
+<li><strong>「第一次通过辅助索引找到主键列的值」</strong></li>
+<li><strong>「第二次通过主键列的值在聚簇索引中查找数据」</strong></li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128158.png" alt="图片"></p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>MySQL(十一)：索引基本原理</p><p><a href="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%B8%80%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%9F%BA%E6%9C%AC%E5%8E%9F%E7%90%86/">http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%B8%80%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%9F%BA%E6%9C%AC%E5%8E%9F%E7%90%86/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>yunlongn</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2021-08-06</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-12-19</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icon" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a><a class="icon" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a><a class="icon" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/Mysql/">Mysql</a></div><div class="bdsharebuttonbox"><a class="bds_more" href="#" data-cmd="more"></a><a class="bds_qzone" href="#" data-cmd="qzone" title="分享到QQ空间"></a><a class="bds_tsina" href="#" data-cmd="tsina" title="分享到新浪微博"></a><a class="bds_tqq" href="#" data-cmd="tqq" title="分享到腾讯微博"></a><a class="bds_renren" href="#" data-cmd="renren" title="分享到人人网"></a><a class="bds_weixin" href="#" data-cmd="weixin" title="分享到微信"></a></div><script>window._bd_share_config = { "common": { "bdSnsKey": {}, "bdText": "", "bdMini": "2", "bdPic": "", "bdStyle": "0", "bdSize": "16" }, "share": {} }; with (document) 0[(getElementsByTagName('head')[0] || body).appendChild(createElement('script')).src = 'http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion=' + ~(-new Date() / 36e5)];</script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/" alt="支付宝"></span></a><a class="button donate" href="/" target="_blank" rel="noopener" data-type="buymeacoffee"><span class="icon is-small"><i class="fas fa-coffee"></i></span><span>送我杯咖啡</span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/2021/08/06/MySQL%E5%8D%81%E4%BA%8C%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%88%86%E6%9E%90/"><i class="level-item fas fa-chevron-left"></i><span class="level-item">MySQL(十二)：索引分析</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2021/08/06/MySQL%E5%8D%81%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86%E5%9B%9E%E9%A1%BE/"><span class="level-item">MySQL十：索引基础知识回顾</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div id="comment-container"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.css"><script src="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script><script>var gitalk = new Gitalk({
+            id: "7ba3478ec090ae1d91c584b44e36fbd8",
+            repo: "yunlongn.github.io",
+            owner: "yunlongn",
+            clientID: "fb8ffef00dff08ccb06c",
+            clientSecret: "935a05558f847f4321d3c64b4c0c2498697a2bda",
+            admin: "yunlongn",
+            createIssueManually: false,
+            distractionFreeMode: false,
+            perPage: 10,
+            pagerDirection: "last",
+            
+            
+            enableHotKey: true,
+            
+        })
+        gitalk.render('comment-container')</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar" src="/img/avatar.png" alt="云扬四海"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">云扬四海</p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">77</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">24</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">29</p></a></div></div></nav><div class="level"><a class="level-item button is-primary is-rounded" href="http://github.com/yunlongn" target="_blank" rel="noopener">关注我</a></div><div class="level is-mobile"><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Github" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="cnblogs" href="https://www.cnblogs.com/rolandlee/"><i class="fas fa-book"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="RSS" href="/atom.xml"><i class="fas fa-rss"></i></a></div></div></div><!--!--><div class="card widget" data-type="tagscloud" style="transition: opacity 0.3s ease-out 0s, transform 0.3s ease-out 0s; opacity: 1; transform-origin: center top;"><div class="card-content" id="tags"><h3 class="menu-label">标签云</h3><a href="/tags/JVM/" style="color:rgb(130,110,88);font-size:15px">JVM<span class="tag-cloud-count">(1) </span></a><a href="/tags/Java/" style="color:rgb(201,173,133);font-size:18px">Java<span class="tag-cloud-count">(5) </span></a><a href="/tags/Mysql/" style="color:rgb(158,135,134);font-size:22px">Mysql<span class="tag-cloud-count">(18) </span></a><a href="/tags/Netty/" style="color:rgb(160,172,149);font-size:18px">Netty<span class="tag-cloud-count">(1) </span></a><a href="/tags/Nginx/" style="color:rgb(148,172,128);font-size:17px">Nginx<span class="tag-cloud-count">(1) </span></a><a href="/tags/SpringBoot/" style="color:rgb(178,105,132);font-size:14px">SpringBoot<span class="tag-cloud-count">(2) </span></a><a href="/tags/heroku/" style="color:rgb(152,161,152);font-size:21px">heroku<span class="tag-cloud-count">(1) </span></a><a href="/tags/java/" style="color:rgb(136,153,133);font-size:14px">java<span class="tag-cloud-count">(1) </span></a><a href="/tags/java%E5%9F%BA%E7%A1%80/" style="color:rgb(167,120,95);font-size:15px">java基础<span class="tag-cloud-count">(2) </span></a><a href="/tags/java%E6%A0%B8%E5%BF%83/" style="color:rgb(131,110,151);font-size:21px">java核心<span class="tag-cloud-count">(1) </span></a><a href="/tags/linux/" style="color:rgb(167,171,110);font-size:16px">linux<span class="tag-cloud-count">(1) </span></a><a href="/tags/mq/" style="color:rgb(171,144,146);font-size:14px">mq<span class="tag-cloud-count">(1) </span></a><a href="/tags/mybatisPlus/" style="color:rgb(161,160,101);font-size:20px">mybatisPlus<span class="tag-cloud-count">(1) </span></a><a href="/tags/nio/" style="color:rgb(152,151,141);font-size:18px">nio<span class="tag-cloud-count">(1) </span></a><a href="/tags/servlet/" style="color:rgb(204,103,84);font-size:22px">servlet<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BA%8B%E5%8A%A1/" style="color:rgb(173,168,123);font-size:16px">事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BF%A1%E5%8F%B7%E9%87%8F/" style="color:rgb(195,173,126);font-size:13px">信号量<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" style="color:rgb(164,163,100);font-size:13px">分布式事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9B%BE%E7%89%87%E8%AF%86%E5%88%AB/" style="color:rgb(141,132,85);font-size:22px">图片识别<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9F%BA%E6%9C%AC%E5%91%BD%E4%BB%A4/" style="color:rgb(175,154,152);font-size:22px">基本命令<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/" style="color:rgb(154,153,151);font-size:18px">小程序<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B7%A5%E5%85%B7/" style="color:rgb(178,168,128);font-size:19px">工具<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%80%A7%E8%83%BD/" style="color:rgb(198,155,151);font-size:22px">性能<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%8A%80%E5%B7%A7/" style="color:rgb(182,145,82);font-size:18px">技巧<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E7%AD%BE%E5%90%8D/" style="color:rgb(138,142,127);font-size:15px">签名<span class="tag-cloud-count">(2) </span></a><a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="color:rgb(157,129,109);font-size:17px">设计模式<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/" style="color:rgb(202,136,153);font-size:20px">读书笔记<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%98%B2%E7%9B%97%E9%93%BE/" style="color:rgb(165,139,118);font-size:16px">防盗链<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="color:rgb(132,100,87);font-size:19px">面试<span class="tag-cloud-count">(1) </span></a></div></div><div class="card widget" data-type="links"><div class="card-content"><div class="menu"><h3 class="menu-label">链接</h3><ul class="menu-list"><li><a class="level is-mobile" href="http://www.ityouknow.com" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">纯洁的微笑</span></span><span class="level-right"><span class="level-item tag">www.ityouknow.com</span></span></a></li><li><a class="level is-mobile" href="https://blog.52itstyle.vip/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">柒&#039;s</span></span><span class="level-right"><span class="level-item tag">blog.52itstyle.vip</span></span></a></li><li><a class="level is-mobile" href="https://www.wdk.pw/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">王登科</span></span><span class="level-right"><span class="level-item tag">www.wdk.pw</span></span></a></li></ul></div></div></div></div><!--!--></div></div></section><embed src="/img/footer.svg" id="galinv" type="image/svg+xml"><footer class="footer"><div class="footer-image"><img src="/img/o_cnblogs_footer.png" width="60%"></div><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/">云扬四海</a><p class="is-size-7"><span>&copy; 2025 yunlongn</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/yunlongn"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" async></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>

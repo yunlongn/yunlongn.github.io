@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>MySQL(十二)：索引分析 - 云扬四海</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="云扬四海"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="云扬四海"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta description="数据库优化是一个很常见的面试题，下面就针对这一问题详细聊聊如何进行索引与sql的分析与优化。 一、执行计划（EXPLAIN）MySQL 提供了一个 EXPLAIN 命令，它「可以对 sql语句进行分析，并输出sql执行的详细信息」，可以让我们有针对性的优化。例如："><meta property="og:type" content="blog"><meta property="og:title" content="MySQL(十二)：索引分析"><meta property="og:url" content="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%BA%8C%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%88%86%E6%9E%90/"><meta property="og:site_name" content="云扬四海"><meta property="og:description" content="数据库优化是一个很常见的面试题，下面就针对这一问题详细聊聊如何进行索引与sql的分析与优化。 一、执行计划（EXPLAIN）MySQL 提供了一个 EXPLAIN 命令，它「可以对 sql语句进行分析，并输出sql执行的详细信息」，可以让我们有针对性的优化。例如："><meta property="og:locale" content="zh_CN"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128841.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="article:published_time" content="2021-08-06T08:12:00.000Z"><meta property="article:modified_time" content="2025-12-19T06:50:33.438Z"><meta property="article:author" content="yunlongn"><meta property="article:tag" content="Mysql"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%BA%8C%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%88%86%E6%9E%90/"},"headline":"云扬四海","image":["https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128841.png"],"datePublished":"2021-08-06T08:12:00.000Z","dateModified":"2025-12-19T06:50:33.438Z","author":{"@type":"Person","name":"yunlongn"},"description":"数据库优化是一个很常见的面试题，下面就针对这一问题详细聊聊如何进行索引与sql的分析与优化。 一、执行计划（EXPLAIN）MySQL 提供了一个 EXPLAIN 命令，它「可以对 sql语句进行分析，并输出sql执行的详细信息」，可以让我们有针对性的优化。例如："}</script><link rel="canonical" href="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%BA%8C%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%88%86%E6%9E%90/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.8.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css"><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script><!--!--><!--!--><meta name="generator" content="Hexo 5.4.2"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/">云扬四海</a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">首页</a><a class="navbar-item" href="/archives">列表</a><a class="navbar-item" href="/categories">类别</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a><a class="navbar-item" href="/yun/fireworks/index.html">fireworks</a><a class="navbar-item" href="/yun/Photo_Wall3D.html">photoWall3D</a><a class="navbar-item" href="/yun/sheep.html">sheep</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-9-tablet is-9-desktop is-9-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2021-08-06T08:12:00.000Z" title="2021-08-06T08:12:00.000Z">2021-08-06</time>发表</span><span class="level-item"><time dateTime="2025-12-19T06:50:33.438Z" title="2025-12-19T06:50:33.438Z">2025-12-19</time>更新</span><span class="level-item"> yunlongn </span><span class="level-item"><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a><span> / </span><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Mysql/">Mysql</a></span><span class="level-item">18 分钟读完 (大约2676个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">MySQL(十二)：索引分析</h1><div class="content"><p>数据库优化是一个很常见的面试题，下面就针对这一问题详细聊聊如何进行索引与sql的分析与优化。</p>
+<h2 id="一、执行计划（EXPLAIN）"><a href="#一、执行计划（EXPLAIN）" class="headerlink" title="一、执行计划（EXPLAIN）"></a><strong>一、执行计划（EXPLAIN）</strong></h2><p>MySQL 提供了一个 EXPLAIN 命令，它<strong>「可以对 sql语句进行分析，并输出sql执行的详细信息」</strong>，可以让我们有针对性的优化。例如：</p>
+<span id="more"></span>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">explain select * from student  where id &gt; 2;</span><br></pre></td></tr></table></figure>
+
+<p>这里需要注意一下版本差异</p>
+<ul>
+<li><p><strong>「MySQL 5.6.3」</strong></p>
+<p>MySQL 5.6.3以前只能 EXPLAIN SELECT ；MYSQL 5.6.3以后可以 EXPLAIN SELECT，UPDATE，DELETE</p>
+</li>
+<li><p><strong>「MySQL 5.7」</strong></p>
+<p>MySQL 5.7以前想要显示 partitions 需要使用 explain partitions 命令；想要显示filtered 需要使用 explain extended 命令。在5.7版本后，默认explain直接显示partitions和filtered中的信息。</p>
+</li>
+</ul>
+<h3 id="1-1执行计划详解"><a href="#1-1执行计划详解" class="headerlink" title="1.1执行计划详解"></a>1.1执行计划详解</h3><p><strong>「在使用索引的时候首先应该学会分析SQL的执行，使用EXPLAIN关键字可以模拟优化器执行SQL查询语句，可以知道MySQL是如何处理SQL语句」</strong>。</p>
+<p>使用格式：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#explain sql语句  如下：</span><br><span class="line">explain select * from student  where id &gt; 2;</span><br></pre></td></tr></table></figure>
+
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<p>从执行计划输出的结果可以看出，它有很多的字段，每个字段都有自己的含义</p>
+<ul>
+<li><p><strong>「id」</strong></p>
+<p><strong>「选择标识符」</strong>：在一个查询语句中每个【SELECT】关键字都对应一个唯一的 id。两种例外的情况：</p>
+</li>
+<li><ul>
+<li><p><strong>「id相同」</strong>优化器对子查询做了<strong>「半连接（semi-jion）优化」</strong>时，两个查询的 id 是一样的</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">explain select * from student  where id in(select id from student  where id &gt; 1);</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+</li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li><p><strong>「id为null」</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">explain select * from student  union select * from student  where id &gt; 1;</span><br></pre></td></tr></table></figure>
+
+<p>因为<strong>「union会对结果去重，内部创建了一个 &lt;union1,2&gt; 名字的临时表，把查询 1 和查询 2 的结果集都合并到这个临时表中，利用唯一键进行去重，这种情况下查询 id 就为 NULL」</strong>。</p>
+</li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li><p><strong>「select_type」</strong></p>
+<p><strong>「查询的类型」</strong>，常用的值如下：</p>
+<table>
+<thead>
+<tr>
+<th align="left">查询的类型</th>
+<th align="left">类型含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">SIMPLE</td>
+<td align="left">简单的select查询，不包含子查询或union查询，是最常见的。</td>
+</tr>
+<tr>
+<td align="left">PRIMARY</td>
+<td align="left">若查询中包含有子查询，最外层查询会别标记为PRIMARY</td>
+</tr>
+<tr>
+<td align="left">UNION</td>
+<td align="left">若第二个SELECT出现在UNION之后，则被标记为UNION；若UNION包含在FROM子句的子查询中,外层SELECT将被标记为：DERIVED</td>
+</tr>
+<tr>
+<td align="left">SUBQUERY</td>
+<td align="left">在SELECT或WHERE列表中包含了子查询</td>
+</tr>
+<tr>
+<td align="left">DERIVED</td>
+<td align="left">在FROM列表中包含的子查询被标记为DERIVED(衍生);MySQL会递归执行这些子查询, 把结果放在临时表里。</td>
+</tr>
+<tr>
+<td align="left">UNION RESULT</td>
+<td align="left">从UNION表获取结果的SELECT</td>
+</tr>
+<tr>
+<td align="left">DEPENDENT SUBQUERY</td>
+<td align="left">在SELECT或WHERE列表中包含了子查询,子查询基于外层</td>
+</tr>
+<tr>
+<td align="left">UNCACHEABLE SUBQUREY</td>
+<td align="left">无法被缓存的子查询</td>
+</tr>
+</tbody></table>
+</li>
+<li><p><strong>「table」</strong></p>
+<p>输出结果集的表，即查询的表名</p>
+</li>
+<li><p><strong>「partitions」</strong></p>
+<p>匹配的分区</p>
+</li>
+<li><p><strong>「type」</strong></p>
+<p>表示存储引擎查询数据时采用的方式。它<strong>「可以判断出查询是全表扫描还是基于索引的部分扫描」</strong>。</p>
+<p>常用属性值如下，从上至下效率依次增强。</p>
+</li>
+<li><ul>
+<li>ALL：表示全表扫描，性能最差。</li>
+<li>index：表示基于索引的全表扫描，先扫描索引再扫描全表数据。</li>
+<li>range：表示使用索引范围查询。使用&gt;、&gt;=、&lt;、&lt;=、in等等。</li>
+<li>ref：表示使用非唯一索引进行单值查询。</li>
+<li>eq_ref：一般情况下出现在多表join查询，表示前面表的每一个记录，都只能匹配后面表的一 行结果。</li>
+<li>const：表示使用主键或唯一索引做等值查询，常量查询。</li>
+<li>NULL：表示不用访问表，速度最快。</li>
+</ul>
+</li>
+<li><p><strong>「possible_keys」</strong></p>
+<p>表示在某个查询语句中，对某个表执行单表查询时<strong>「可能用到的索引列表」</strong></p>
+</li>
+<li><p><strong>「key」</strong></p>
+<p>表示在某个查询语句中，列表示<strong>「实际用到的索引」</strong>有哪些。</p>
+</li>
+<li><p><strong>「key_len」</strong></p>
+<p>表示查询使用索引的字节数量。可以判断是否全部使用了组合索引。</p>
+<blockquote>
+<p>如果键是 NULL，则长度为 NULL。<strong>「使用的索引的长度」</strong>。在不损失精确性的情况下，长度越短越好 。</p>
+</blockquote>
+</li>
+<li><p><strong>「ref」</strong></p>
+<p>当使用索引列等值匹配的条件去执行查询时，ref 列展示<strong>「与索引列作等值匹配的对象」</strong>。</p>
+</li>
+<li><p><strong>「rows」</strong></p>
+<p><strong>「扫描出的行数(估算的行数)」</strong>，</p>
+</li>
+<li><ul>
+<li>如果查询优化器决定使用全表扫描的方式对某个表执行查询时，rows 列就代表预计需要扫描的行数；</li>
+<li>如果使用索引来执行查询时，rows 列就代表预计扫描的索引记录行数。</li>
+</ul>
+</li>
+<li><p><strong>「filtered」</strong></p>
+<p>按表条件过滤的行百分比</p>
+</li>
+<li><ul>
+<li>如果是全表扫描，filtered 值代表满足 where 条件的行数占表总行数的百分比</li>
+<li>如果是使用索引来执行查询，filtered 值代表从索引上取得数据后，满足其他过滤条件的数据行数的占比。</li>
+</ul>
+</li>
+<li><p><strong>「Extra」</strong></p>
+<p>Extra 是 EXPLAIN 输出中另外一个很重要的列，各种操作都会在Extra提示相关信息，常见几种如下：</p>
+</li>
+<li><ul>
+<li><p>Using where：表示查询需要通过索引回表查询数据。</p>
+</li>
+<li><p>Using index：表示查询需要通过索引，索引就可以满足所需数据。</p>
+</li>
+<li><p>Using filesort：表示查询出来的结果需要额外排序，</p>
+<blockquote>
+<p>数据量小在内存排序，数据量大在磁盘排序，因此有Using filesort 建议优化。</p>
+</blockquote>
+</li>
+<li><p>Using temprorary：查询使用到了临时表，一般出现于去重、分组等操作。</p>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="二、回表查询"><a href="#二、回表查询" class="headerlink" title="二、回表查询"></a><strong>二、回表查询</strong></h2><p>在之前<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247486030&idx=1&sn=ffd84e5aa3b0481d38110eb40d557dea&scene=21#wechat_redirect">《索引基本原理》</a> 中提到InnoDB索引有聚簇索引和辅助索引。</p>
+<ul>
+<li>聚簇索引的叶子节点存储行记录，InnoDB必须要有，且只有一个。</li>
+<li>辅助索引的叶子节点存储的是主键值和索引字段值</li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061128841.png" alt="图片"></p>
+<p>由上图可知：<strong>「通过辅助索引无法直接定位行记录，通常情况下，需要扫两遍索引树。先通过辅助索引定位主键值，然后再通过聚簇索引定位行记录，即回表查询」</strong>。性能比扫一遍索引树低。</p>
+<h2 id="三、覆盖索引"><a href="#三、覆盖索引" class="headerlink" title="三、覆盖索引"></a><strong>三、覆盖索引</strong></h2><p>索引覆盖：<strong>「只需要在一棵索引树上就能获取SQL所需的所 有列数据，无需回表，速度更快」</strong></p>
+<p>覆盖索引形式：，搜索的索引键中的字段恰好是查询的字段</p>
+<p>实现索引覆盖最常见的方法就是：将被查询的字段，建立到组合索引。</p>
+<h2 id="四、最左前缀原则"><a href="#四、最左前缀原则" class="headerlink" title="四、最左前缀原则"></a><strong>四、最左前缀原则</strong></h2><p>在之前<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247486030&idx=1&sn=ffd84e5aa3b0481d38110eb40d557dea&scene=21#wechat_redirect">《索引基本原理》</a> 中提到组合索引的概念，在组合索引的使用中最关键的就是最左前缀原则。</p>
+<p><strong>「组合索引使用时遵循最左前缀原则，最左前缀顾名思义，就是最左优先，即查询中使用到最左边的列， 那么查询就会使用到索引，如果从索引的第二列开始查找，索引将失效」</strong>。</p>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<h2 id="五、索引与排序"><a href="#五、索引与排序" class="headerlink" title="五、索引与排序"></a><strong>五、索引与排序</strong></h2><h3 id="5-1排序方式"><a href="#5-1排序方式" class="headerlink" title="5.1排序方式"></a>5.1排序方式</h3><p>MySQL查询支持filesort和index两种方式的排序，</p>
+<ul>
+<li>filesort是先把结果查出，然后在缓存或磁盘进行排序 操作，效率较低。</li>
+<li>index是指利用索引自动实现排序，不需另做排序操作，效率会比较高。</li>
+</ul>
+<h3 id="5-2-排序方式的选择"><a href="#5-2-排序方式的选择" class="headerlink" title="5.2 排序方式的选择"></a>5.2 排序方式的选择</h3><ul>
+<li><p><strong>「使用index方式的排序的场景」</strong></p>
+</li>
+<li><ul>
+<li><p>ORDER BY 子句索引列组合满足索引最左前列</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">explain select id from user order by id; &#x2F;&#x2F;对应(id)、(id,name)索引有效</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>WHERE子句+ORDER BY子句索引列组合满足索引最左前缀</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"> #对应(age,name)组合索引</span><br><span class="line">explain select id from user where age&#x3D;18 order by name;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+</li>
+<li><p><strong>「使用filesort方式的排序的场景」</strong></p>
+</li>
+<li><ul>
+<li><p>对索引列同时使用了ASC和DESC</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"> #对应(age,name)组合索引</span><br><span class="line">explain select id from user order by age asc,name desc;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>WHERE子句和ORDER BY子句满足最左前缀，但where子句使用了范围查询（例如&gt;、&lt;、in 等）</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"> #对应(age,name)组合索引</span><br><span class="line">explain select id from user where age&gt;10 order by name;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>ORDER BY或者WHERE+ORDER BY索引列没有满足索引最左前缀</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"> #对应(age,name)组合索引</span><br><span class="line">explain select id from user order by name;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>使用了不同的索引，MySQL每次只采用一个索引，ORDER BY涉及了两个索引</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#对应(name)、(age)两个索引</span><br><span class="line">explain select id from user order by name,age;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>WHERE子句与ORDER BY子句，使用了不同的索引</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#对应(name)、(age)索引</span><br><span class="line">explain select id from user where name&#x3D;&#39;tom&#39; order by age;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>WHERE子句或者ORDER BY子句中索引列使用了表达式，包括函数表达式</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#对应(age)索引</span><br><span class="line">explain select id from user order by abs(age);</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="5-3排序算法"><a href="#5-3排序算法" class="headerlink" title="5.3排序算法"></a>5.3排序算法</h3><p>filesort有两种排序算法：双路排序和单路排序。</p>
+<ul>
+<li>双路排序：需要两次磁盘扫描读取，得到最终数据。第一次将排序字段读取出来，然后排序；第二 次去读取其他字段数据。</li>
+<li>单路排序：从磁盘查询所需的所有列数据，然后在内存排序将结果返回。</li>
+<li>如果查询数据超出缓存 sort_buffer，会导致多次磁盘读取操作，并创建临时表，最后产生了多次IO，反而会增加负担。</li>
+<li>解决方案：少使用select *；增加sort_buffer_size容量和max_length_for_sort_data容量。</li>
+</ul>
+<blockquote>
+<p>如果Explain分析SQL时Extra属性显示Using filesort，表示使用了filesort排序方式，需要优化。如果Extra属性显示Using index时，表示覆盖索引，所有操作在索引上完成。</p>
+</blockquote>
+</div><div class="article-licensing box"><div class="licensing-title"><p>MySQL(十二)：索引分析</p><p><a href="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%BA%8C%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%88%86%E6%9E%90/">http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%BA%8C%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%88%86%E6%9E%90/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>yunlongn</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2021-08-06</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-12-19</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icon" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a><a class="icon" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a><a class="icon" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/Mysql/">Mysql</a></div><div class="bdsharebuttonbox"><a class="bds_more" href="#" data-cmd="more"></a><a class="bds_qzone" href="#" data-cmd="qzone" title="分享到QQ空间"></a><a class="bds_tsina" href="#" data-cmd="tsina" title="分享到新浪微博"></a><a class="bds_tqq" href="#" data-cmd="tqq" title="分享到腾讯微博"></a><a class="bds_renren" href="#" data-cmd="renren" title="分享到人人网"></a><a class="bds_weixin" href="#" data-cmd="weixin" title="分享到微信"></a></div><script>window._bd_share_config = { "common": { "bdSnsKey": {}, "bdText": "", "bdMini": "2", "bdPic": "", "bdStyle": "0", "bdSize": "16" }, "share": {} }; with (document) 0[(getElementsByTagName('head')[0] || body).appendChild(createElement('script')).src = 'http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion=' + ~(-new Date() / 36e5)];</script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/" alt="支付宝"></span></a><a class="button donate" href="/" target="_blank" rel="noopener" data-type="buymeacoffee"><span class="icon is-small"><i class="fas fa-coffee"></i></span><span>送我杯咖啡</span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/2021/08/06/MySQL%E5%8D%81%E4%B8%89%EF%BC%9A%E5%B0%8F%E4%B8%80%E4%B8%87%E5%AD%97+14%E5%BC%A0%E5%9B%BE%E8%AF%BB%E6%87%82%E9%94%81%E6%9C%BA%E5%88%B6/"><i class="level-item fas fa-chevron-left"></i><span class="level-item">MySQL(十三)：小一万字+14张图读懂锁机制</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2021/08/06/MySQL%E5%8D%81%E4%B8%80%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%9F%BA%E6%9C%AC%E5%8E%9F%E7%90%86/"><span class="level-item">MySQL(十一)：索引基本原理</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div id="comment-container"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.css"><script src="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script><script>var gitalk = new Gitalk({
+            id: "4d3e925507757ced552f0b6228db4e42",
+            repo: "yunlongn.github.io",
+            owner: "yunlongn",
+            clientID: "fb8ffef00dff08ccb06c",
+            clientSecret: "935a05558f847f4321d3c64b4c0c2498697a2bda",
+            admin: "yunlongn",
+            createIssueManually: false,
+            distractionFreeMode: false,
+            perPage: 10,
+            pagerDirection: "last",
+            
+            
+            enableHotKey: true,
+            
+        })
+        gitalk.render('comment-container')</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar" src="/img/avatar.png" alt="云扬四海"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">云扬四海</p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">77</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">24</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">29</p></a></div></div></nav><div class="level"><a class="level-item button is-primary is-rounded" href="http://github.com/yunlongn" target="_blank" rel="noopener">关注我</a></div><div class="level is-mobile"><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Github" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="cnblogs" href="https://www.cnblogs.com/rolandlee/"><i class="fas fa-book"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="RSS" href="/atom.xml"><i class="fas fa-rss"></i></a></div></div></div><!--!--><div class="card widget" data-type="tagscloud" style="transition: opacity 0.3s ease-out 0s, transform 0.3s ease-out 0s; opacity: 1; transform-origin: center top;"><div class="card-content" id="tags"><h3 class="menu-label">标签云</h3><a href="/tags/JVM/" style="color:rgb(153,130,133);font-size:13px">JVM<span class="tag-cloud-count">(1) </span></a><a href="/tags/Java/" style="color:rgb(157,143,137);font-size:20px">Java<span class="tag-cloud-count">(5) </span></a><a href="/tags/Mysql/" style="color:rgb(195,134,109);font-size:22px">Mysql<span class="tag-cloud-count">(18) </span></a><a href="/tags/Netty/" style="color:rgb(176,172,96);font-size:15px">Netty<span class="tag-cloud-count">(1) </span></a><a href="/tags/Nginx/" style="color:rgb(200,140,133);font-size:20px">Nginx<span class="tag-cloud-count">(1) </span></a><a href="/tags/SpringBoot/" style="color:rgb(143,152,129);font-size:13px">SpringBoot<span class="tag-cloud-count">(2) </span></a><a href="/tags/heroku/" style="color:rgb(189,168,120);font-size:20px">heroku<span class="tag-cloud-count">(1) </span></a><a href="/tags/java/" style="color:rgb(182,150,136);font-size:14px">java<span class="tag-cloud-count">(1) </span></a><a href="/tags/java%E5%9F%BA%E7%A1%80/" style="color:rgb(154,161,103);font-size:20px">java基础<span class="tag-cloud-count">(2) </span></a><a href="/tags/java%E6%A0%B8%E5%BF%83/" style="color:rgb(178,165,92);font-size:14px">java核心<span class="tag-cloud-count">(1) </span></a><a href="/tags/linux/" style="color:rgb(187,128,146);font-size:22px">linux<span class="tag-cloud-count">(1) </span></a><a href="/tags/mq/" style="color:rgb(161,152,105);font-size:13px">mq<span class="tag-cloud-count">(1) </span></a><a href="/tags/mybatisPlus/" style="color:rgb(189,126,123);font-size:19px">mybatisPlus<span class="tag-cloud-count">(1) </span></a><a href="/tags/nio/" style="color:rgb(150,160,152);font-size:18px">nio<span class="tag-cloud-count">(1) </span></a><a href="/tags/servlet/" style="color:rgb(194,142,90);font-size:19px">servlet<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BA%8B%E5%8A%A1/" style="color:rgb(136,120,125);font-size:18px">事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BF%A1%E5%8F%B7%E9%87%8F/" style="color:rgb(142,128,100);font-size:22px">信号量<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" style="color:rgb(204,157,129);font-size:20px">分布式事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9B%BE%E7%89%87%E8%AF%86%E5%88%AB/" style="color:rgb(173,166,126);font-size:20px">图片识别<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9F%BA%E6%9C%AC%E5%91%BD%E4%BB%A4/" style="color:rgb(161,160,130);font-size:19px">基本命令<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/" style="color:rgb(145,160,90);font-size:19px">小程序<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B7%A5%E5%85%B7/" style="color:rgb(188,146,102);font-size:14px">工具<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%80%A7%E8%83%BD/" style="color:rgb(161,156,92);font-size:14px">性能<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%8A%80%E5%B7%A7/" style="color:rgb(135,118,154);font-size:14px">技巧<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E7%AD%BE%E5%90%8D/" style="color:rgb(146,125,111);font-size:13px">签名<span class="tag-cloud-count">(2) </span></a><a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="color:rgb(159,126,151);font-size:16px">设计模式<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/" style="color:rgb(146,167,128);font-size:16px">读书笔记<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%98%B2%E7%9B%97%E9%93%BE/" style="color:rgb(191,120,102);font-size:15px">防盗链<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="color:rgb(195,111,92);font-size:22px">面试<span class="tag-cloud-count">(1) </span></a></div></div><div class="card widget" data-type="links"><div class="card-content"><div class="menu"><h3 class="menu-label">链接</h3><ul class="menu-list"><li><a class="level is-mobile" href="http://www.ityouknow.com" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">纯洁的微笑</span></span><span class="level-right"><span class="level-item tag">www.ityouknow.com</span></span></a></li><li><a class="level is-mobile" href="https://blog.52itstyle.vip/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">柒&#039;s</span></span><span class="level-right"><span class="level-item tag">blog.52itstyle.vip</span></span></a></li><li><a class="level is-mobile" href="https://www.wdk.pw/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">王登科</span></span><span class="level-right"><span class="level-item tag">www.wdk.pw</span></span></a></li></ul></div></div></div></div><!--!--></div></div></section><embed src="/img/footer.svg" id="galinv" type="image/svg+xml"><footer class="footer"><div class="footer-image"><img src="/img/o_cnblogs_footer.png" width="60%"></div><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/">云扬四海</a><p class="is-size-7"><span>&copy; 2025 yunlongn</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/yunlongn"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" async></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>

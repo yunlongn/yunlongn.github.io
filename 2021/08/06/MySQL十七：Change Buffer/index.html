@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>MySQL十七：Change Buffer - 云扬四海</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="云扬四海"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="云扬四海"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta description="在之前的文章《InnoDB的存储结构》介绍的InnoDB的存储结构的组成中，我们知道Change Buffer也是用InnoDB内存结构的组成部分。"><meta property="og:type" content="blog"><meta property="og:title" content="MySQL十七：Change Buffer"><meta property="og:url" content="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%B8%83%EF%BC%9AChange%20Buffer/"><meta property="og:site_name" content="云扬四海"><meta property="og:description" content="在之前的文章《InnoDB的存储结构》介绍的InnoDB的存储结构的组成中，我们知道Change Buffer也是用InnoDB内存结构的组成部分。"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130778.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130796.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130771.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130720.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="article:published_time" content="2021-08-06T08:17:00.000Z"><meta property="article:modified_time" content="2025-12-19T06:50:33.436Z"><meta property="article:author" content="yunlongn"><meta property="article:tag" content="Mysql"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130778.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%B8%83%EF%BC%9AChange%20Buffer/"},"headline":"云扬四海","image":["https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130778.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130796.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130771.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130720.png"],"datePublished":"2021-08-06T08:17:00.000Z","dateModified":"2025-12-19T06:50:33.436Z","author":{"@type":"Person","name":"yunlongn"},"description":"在之前的文章《InnoDB的存储结构》介绍的InnoDB的存储结构的组成中，我们知道Change Buffer也是用InnoDB内存结构的组成部分。"}</script><link rel="canonical" href="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%B8%83%EF%BC%9AChange%20Buffer/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.8.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css"><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script><!--!--><!--!--><meta name="generator" content="Hexo 5.4.2"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/">云扬四海</a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">首页</a><a class="navbar-item" href="/archives">列表</a><a class="navbar-item" href="/categories">类别</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a><a class="navbar-item" href="/yun/fireworks/index.html">fireworks</a><a class="navbar-item" href="/yun/Photo_Wall3D.html">photoWall3D</a><a class="navbar-item" href="/yun/sheep.html">sheep</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-9-tablet is-9-desktop is-9-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2021-08-06T08:17:00.000Z" title="2021-08-06T08:17:00.000Z">2021-08-06</time>发表</span><span class="level-item"><time dateTime="2025-12-19T06:50:33.436Z" title="2025-12-19T06:50:33.436Z">2025-12-19</time>更新</span><span class="level-item"> yunlongn </span><span class="level-item"><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a><span> / </span><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Mysql/">Mysql</a></span><span class="level-item">14 分钟读完 (大约2170个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">MySQL十七：Change Buffer</h1><div class="content"><p>在之前的文章<a href="">《InnoDB的存储结构》</a>介绍的InnoDB的存储结构的组成中，我们知道Change Buffer也是用InnoDB内存结构的组成部分。</p>
+<span id="more"></span>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130778.png" alt="图片"></p>
+<p>Change Buffer主要是为了在写入是减少磁盘IO而存在的，</p>
+<h2 id="一、什么是什么是Change-Buffer"><a href="#一、什么是什么是Change-Buffer" class="headerlink" title="一、什么是什么是Change Buffer"></a><strong>一、什么是什么是Change Buffer</strong></h2><p><strong>「在<a href="">《Buffer Pool》</a>中介绍了buffer pool会缓存热的数据页和索引页，减少磁盘读操作，而对于磁盘的写操作，innoDB同样也有类似的策略，即通过change buffer缓解磁盘写操作产生的磁盘IO」</strong>。</p>
+<ul>
+<li><strong>「Change Buffer是在【非唯一普通索引页】不在buffer pool中时，当对页进行了写操作时，在不影响数据一致性的前提下。InnoDB会将数据先写入Change Buffer中，等未来数据被读取时，再将 change buffer 中的操作merge到原数据页中」</strong>。</li>
+<li>在MySQL5.5之前，只针对insert做了优化，叫插入缓冲(insert buffer)，后面进行了优化，对delete和update也有效，叫做写缓冲(change buffer)。</li>
+</ul>
+<h2 id="二、Change-buffer-执行过程"><a href="#二、Change-buffer-执行过程" class="headerlink" title="二、Change buffer 执行过程"></a><strong>二、Change buffer 执行过程</strong></h2><p><strong>「我们知道当执行写操作时，数据页存在于Buffer Pool中时，会直接修改数据页。那如果数据页不存在于Buffer Pool中时，过程会有一些不一样，这种情况会将写操作缓存到Change Buffer中，等未来在特定条件下其合并到Buffer Pool中」</strong>。因此当需要执行一个写入操作时，一般分为走Change buffer和不走Change buffer两种情况。</p>
+<h3 id="2-1-写入的数据页在内存中"><a href="#2-1-写入的数据页在内存中" class="headerlink" title="2.1 写入的数据页在内存中"></a>2.1 写入的数据页在内存中</h3><blockquote>
+<p>这种情况在在<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247486351&idx=1&sn=bcafc8b2862545396401fc7c7e75c907&scene=21#wechat_redirect">《Buffer Pool》</a>的第4.3.2节 Flush链表写入过程中已经提过了，感兴趣的可以去看看，不看也没关系，这里在写一遍，凑一下字数~~</p>
+</blockquote>
+<p>当我们在写入数据的时候，写入的数据页在内存中，MySQL不会直接更新直接更新磁盘，而是经过以下两个步骤：</p>
+<ul>
+<li>第一步：更新Buffer Pool中的数据页，一次内存操作；</li>
+<li>第二步：将更新操作顺序写Redo log，一次磁盘顺序写操作；</li>
+</ul>
+<blockquote>
+<p>这样的效率是最高的。顺序写Redo log，每秒几万次，问题不大。</p>
+</blockquote>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130796.png" alt="图片"></p>
+<p><strong>「这种情况是被更新的数据已经别加载到Buffer Pool的前提下」</strong>。</p>
+<ul>
+<li><p><strong>「是否会产生数据一致性问题」</strong></p>
+<p><strong>「因此写入的数据页在内存中这中情况不会产生数据一致性问题」</strong></p>
+</li>
+<li><ul>
+<li>读取数据，会命中缓冲池的页（已经被修改）。</li>
+<li>缓冲池LRU数据淘汰，则会将【脏页】刷回磁盘。</li>
+<li>数据库奔溃，redo log可以恢复数据。</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-2-写入的数据页不在内存中"><a href="#2-2-写入的数据页不在内存中" class="headerlink" title="2.2 写入的数据页不在内存中"></a>2.2 写入的数据页不在内存中</h3><p>当我们修改的数据所在的数据页之前没有别读取过，或者干脆就是一条插入语句，则会经过以下两个步骤：</p>
+<ul>
+<li>第一步：在Change buffer中记录这个写入操作，一次内存操作。</li>
+<li>第二步：将写入操作顺序写Redo log，一次磁盘顺序写操作；</li>
+</ul>
+<blockquote>
+<p>可以看到，这种方式跟上面的方式<strong>「仅仅只是第一步写入的位置不一样而已，而且都是内存操作」</strong>。</p>
+<p>如果没有Change buffer，那更新可能会变成</p>
+<ul>
+<li>第一步：先从磁盘读取所在数据页加载到缓冲池，一次磁盘随机读操作；</li>
+<li>第二步：更新Buffer Pool中的数据页，一次内存操作；</li>
+<li>第三步：将更新操作顺序写Redo log，一次磁盘顺序写操作；</li>
+</ul>
+<p>也就是会多一次磁盘IO，磁盘IO相比较内存操作时很慢的，并发下性能就会急剧下降。</p>
+</blockquote>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130771.png" alt="图片"></p>
+<blockquote>
+<p>这种方式的效率跟第一次差不多，写缓冲是降低磁盘IO，提升数据库写性能的一种机制。</p>
+</blockquote>
+<p><strong>「是否会产生数据一致性问题」</strong></p>
+<ul>
+<li>读取数据，会将Change Buffer中的数据合并到Buffer Pool中。</li>
+<li>如果没有读取，Change也会被被定期刷盘到写缓冲系统表空间。</li>
+<li>数据库奔溃，redo log可以恢复数据。</li>
+</ul>
+<p><strong>「因此写入的数据页不在内存中这中情况也不会产生数据一致性问题」</strong>。</p>
+<h2 id="三、Change-Buffer大小配置"><a href="#三、Change-Buffer大小配置" class="headerlink" title="三、Change Buffer大小配置"></a><strong>三、Change Buffer大小配置</strong></h2><p><strong>「从下图中可以看出，Change Buffer被包含在了Buffer Pool中的，change buffer用的是buffer pool里的内存，由于Buffer Pool的内存大小是有限制的，所以change buffer大小也是有限制的，可通过参数innodb_change_buffer_max_size设置」</strong>。</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061130720.png" alt="图片"></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show variables like &#39;%innodb_change_buffer_max_size%&#39;;</span><br></pre></td></tr></table></figure>
+
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li><p>innodb_change_buffer_max_size表示允许change_buffer占Buffer Pool总大小的百分比，默认值为25%，最大可设置为50%。</p>
+</li>
+<li><ul>
+<li>当在系统中有大量插入，更新和删除操作时，可以增大innodb_change_buffer_max_size，以提高系统的写入性能。</li>
+<li>当在系统中有大量查询操作时，可以减小innodb_change_buffer_max_size，以减少Buffer Pool中数据页的淘汰的概率，提高系统的读取性能。</li>
+</ul>
+</li>
+<li><p>innodb_change_buffer_max_size 设置是动态的，它允许修改设置而无需重新启动服务器。</p>
+</li>
+</ul>
+<h2 id="四、配置Change-Buffer的类型"><a href="#四、配置Change-Buffer的类型" class="headerlink" title="四、配置Change Buffer的类型"></a><strong>四、配置Change Buffer的类型</strong></h2><p><strong>「前面说到Change Buffer在MySQL5.5之后可以支持新增、删除、修改的写入，对于受I/O限制的操作（大量DML、如批量插入）有很大的性能提升价值。但是对于一些特定的场景，可以通过修改innodb_change_buffering来变更Change Buffer支持的类型，分别为插入，删除，清除启用或禁用缓冲，更新操作是插入和删除的组合」</strong>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show variables like &#39;%innodb_change_buffering%&#39;;</span><br></pre></td></tr></table></figure>
+
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li>all ：默认值，缓冲区插入，删除和清除。</li>
+<li>none：不缓存任何操作</li>
+<li>inserts：缓冲区插入操作。</li>
+<li>deletes：缓冲区删除标记操作。</li>
+<li>changes：缓冲区插入和删除标记操作。</li>
+<li>purges：缓冲区在后台发生的物理删除操作。</li>
+</ul>
+<h2 id="五、Change-buffer被merge的时机"><a href="#五、Change-buffer被merge的时机" class="headerlink" title="五、Change buffer被merge的时机"></a><strong>五、Change buffer被merge的时机</strong></h2><p>既然Change buffer是单独内存中，写入之后会被合并到Buffer Pool中,那么是时候时候会被merge呢？</p>
+<p><strong>「Change buffer会被merge触发时机」</strong></p>
+<ul>
+<li>读取Change buffer中记录的数据页时，会将Change buffer合并到buffer Pool 中，然后被刷新到磁盘。</li>
+<li>当系统空闲或者slow shutdown时，后台master线程发起merge。</li>
+<li>change buffer的内存空间用完了，后台master线程会发起merge。</li>
+<li>redo log写满了，但是一般不会发生。</li>
+</ul>
+<h2 id="六、Change-buffer为什么只对非唯一普通索引页有效"><a href="#六、Change-buffer为什么只对非唯一普通索引页有效" class="headerlink" title="六、Change buffer为什么只对非唯一普通索引页有效"></a><strong>六、Change buffer为什么只对非唯一普通索引页有效</strong></h2><p><strong>「不知道大家有没有印象，在本文第一节就重点说了一个词【非唯一普通索引页】，Change buffer只有在非唯一普通索引页时才生效，这是为什么呢？」</strong></p>
+<p>相信大家在日常工作中会经常遇到一个问题：<strong>「主键冲突」</strong>。</p>
+<ul>
+<li><p><strong>「主键索引，唯一索引」</strong></p>
+<p>实际上对于【唯一索引】的更新，插入操作都会<strong>「先判断当前操作是否违反唯一性约束」</strong>，而这个操作就必须要将索引页读取到内存中，此时既然已经读取到内存了，那直接更新即可，没有需要在用Change buffer了。</p>
+</li>
+<li><p><strong>「非唯一普通索引」</strong></p>
+<p><strong>「不需要判断当前操作是否违反唯一性约束」</strong>，也就不需要将数据页读取到内存，因此可以直接使用 change buffer 更新。</p>
+</li>
+</ul>
+<p><strong>「基于此，Change buffer只有对普通索引可以使用，对唯一索引的更新无法生效」</strong>。</p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>MySQL十七：Change Buffer</p><p><a href="http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%B8%83%EF%BC%9AChange%20Buffer/">http://ityouknow.cn/2021/08/06/MySQL%E5%8D%81%E4%B8%83%EF%BC%9AChange%20Buffer/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>yunlongn</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2021-08-06</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-12-19</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icon" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a><a class="icon" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a><a class="icon" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/Mysql/">Mysql</a></div><div class="bdsharebuttonbox"><a class="bds_more" href="#" data-cmd="more"></a><a class="bds_qzone" href="#" data-cmd="qzone" title="分享到QQ空间"></a><a class="bds_tsina" href="#" data-cmd="tsina" title="分享到新浪微博"></a><a class="bds_tqq" href="#" data-cmd="tqq" title="分享到腾讯微博"></a><a class="bds_renren" href="#" data-cmd="renren" title="分享到人人网"></a><a class="bds_weixin" href="#" data-cmd="weixin" title="分享到微信"></a></div><script>window._bd_share_config = { "common": { "bdSnsKey": {}, "bdText": "", "bdMini": "2", "bdPic": "", "bdStyle": "0", "bdSize": "16" }, "share": {} }; with (document) 0[(getElementsByTagName('head')[0] || body).appendChild(createElement('script')).src = 'http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion=' + ~(-new Date() / 36e5)];</script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/" alt="支付宝"></span></a><a class="button donate" href="/" target="_blank" rel="noopener" data-type="buymeacoffee"><span class="icon is-small"><i class="fas fa-coffee"></i></span><span>送我杯咖啡</span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/2021/08/06/MySQL%E5%8D%81%E5%85%AB%EF%BC%9A%E5%86%99%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B/"><i class="level-item fas fa-chevron-left"></i><span class="level-item">MySQL十八：写语句的执行过程</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2021/08/06/MySQL%E5%8D%81%E5%85%AD%EF%BC%9A36%E5%BC%A0%E5%9B%BE%E7%90%86%E8%A7%A3Buffer%20Pool/"><span class="level-item">MySQL十六：36张图理解Buffer Pool</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div id="comment-container"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.css"><script src="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script><script>var gitalk = new Gitalk({
+            id: "f12f04e7e6b6c7e3283f72891af93958",
+            repo: "yunlongn.github.io",
+            owner: "yunlongn",
+            clientID: "fb8ffef00dff08ccb06c",
+            clientSecret: "935a05558f847f4321d3c64b4c0c2498697a2bda",
+            admin: "yunlongn",
+            createIssueManually: false,
+            distractionFreeMode: false,
+            perPage: 10,
+            pagerDirection: "last",
+            
+            
+            enableHotKey: true,
+            
+        })
+        gitalk.render('comment-container')</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar" src="/img/avatar.png" alt="云扬四海"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">云扬四海</p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">77</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">24</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">29</p></a></div></div></nav><div class="level"><a class="level-item button is-primary is-rounded" href="http://github.com/yunlongn" target="_blank" rel="noopener">关注我</a></div><div class="level is-mobile"><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Github" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="cnblogs" href="https://www.cnblogs.com/rolandlee/"><i class="fas fa-book"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="RSS" href="/atom.xml"><i class="fas fa-rss"></i></a></div></div></div><!--!--><div class="card widget" data-type="tagscloud" style="transition: opacity 0.3s ease-out 0s, transform 0.3s ease-out 0s; opacity: 1; transform-origin: center top;"><div class="card-content" id="tags"><h3 class="menu-label">标签云</h3><a href="/tags/JVM/" style="color:rgb(151,100,121);font-size:18px">JVM<span class="tag-cloud-count">(1) </span></a><a href="/tags/Java/" style="color:rgb(178,159,113);font-size:14px">Java<span class="tag-cloud-count">(5) </span></a><a href="/tags/Mysql/" style="color:rgb(157,166,123);font-size:16px">Mysql<span class="tag-cloud-count">(18) </span></a><a href="/tags/Netty/" style="color:rgb(202,167,89);font-size:16px">Netty<span class="tag-cloud-count">(1) </span></a><a href="/tags/Nginx/" style="color:rgb(172,158,118);font-size:16px">Nginx<span class="tag-cloud-count">(1) </span></a><a href="/tags/SpringBoot/" style="color:rgb(177,116,93);font-size:17px">SpringBoot<span class="tag-cloud-count">(2) </span></a><a href="/tags/heroku/" style="color:rgb(196,156,131);font-size:21px">heroku<span class="tag-cloud-count">(1) </span></a><a href="/tags/java/" style="color:rgb(203,140,132);font-size:20px">java<span class="tag-cloud-count">(1) </span></a><a href="/tags/java%E5%9F%BA%E7%A1%80/" style="color:rgb(198,139,128);font-size:19px">java基础<span class="tag-cloud-count">(2) </span></a><a href="/tags/java%E6%A0%B8%E5%BF%83/" style="color:rgb(139,127,126);font-size:22px">java核心<span class="tag-cloud-count">(1) </span></a><a href="/tags/linux/" style="color:rgb(163,120,140);font-size:14px">linux<span class="tag-cloud-count">(1) </span></a><a href="/tags/mq/" style="color:rgb(175,126,143);font-size:16px">mq<span class="tag-cloud-count">(1) </span></a><a href="/tags/mybatisPlus/" style="color:rgb(148,139,96);font-size:22px">mybatisPlus<span class="tag-cloud-count">(1) </span></a><a href="/tags/nio/" style="color:rgb(203,165,108);font-size:14px">nio<span class="tag-cloud-count">(1) </span></a><a href="/tags/servlet/" style="color:rgb(170,104,105);font-size:15px">servlet<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BA%8B%E5%8A%A1/" style="color:rgb(189,166,86);font-size:13px">事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BF%A1%E5%8F%B7%E9%87%8F/" style="color:rgb(203,121,92);font-size:15px">信号量<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" style="color:rgb(184,102,115);font-size:15px">分布式事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9B%BE%E7%89%87%E8%AF%86%E5%88%AB/" style="color:rgb(134,114,95);font-size:17px">图片识别<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9F%BA%E6%9C%AC%E5%91%BD%E4%BB%A4/" style="color:rgb(131,115,94);font-size:22px">基本命令<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/" style="color:rgb(195,163,145);font-size:22px">小程序<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B7%A5%E5%85%B7/" style="color:rgb(136,173,91);font-size:20px">工具<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%80%A7%E8%83%BD/" style="color:rgb(164,113,108);font-size:16px">性能<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%8A%80%E5%B7%A7/" style="color:rgb(180,145,89);font-size:18px">技巧<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E7%AD%BE%E5%90%8D/" style="color:rgb(134,172,85);font-size:14px">签名<span class="tag-cloud-count">(2) </span></a><a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="color:rgb(130,141,138);font-size:13px">设计模式<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/" style="color:rgb(143,128,125);font-size:20px">读书笔记<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%98%B2%E7%9B%97%E9%93%BE/" style="color:rgb(137,110,147);font-size:17px">防盗链<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="color:rgb(138,111,144);font-size:17px">面试<span class="tag-cloud-count">(1) </span></a></div></div><div class="card widget" data-type="links"><div class="card-content"><div class="menu"><h3 class="menu-label">链接</h3><ul class="menu-list"><li><a class="level is-mobile" href="http://www.ityouknow.com" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">纯洁的微笑</span></span><span class="level-right"><span class="level-item tag">www.ityouknow.com</span></span></a></li><li><a class="level is-mobile" href="https://blog.52itstyle.vip/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">柒&#039;s</span></span><span class="level-right"><span class="level-item tag">blog.52itstyle.vip</span></span></a></li><li><a class="level is-mobile" href="https://www.wdk.pw/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">王登科</span></span><span class="level-right"><span class="level-item tag">www.wdk.pw</span></span></a></li></ul></div></div></div></div><!--!--></div></div></section><embed src="/img/footer.svg" id="galinv" type="image/svg+xml"><footer class="footer"><div class="footer-image"><img src="/img/o_cnblogs_footer.png" width="60%"></div><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/">云扬四海</a><p class="is-size-7"><span>&copy; 2025 yunlongn</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/yunlongn"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" async></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>

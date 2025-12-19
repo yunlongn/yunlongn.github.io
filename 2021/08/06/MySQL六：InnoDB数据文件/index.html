@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>MySQL六：InnoDB数据文件 - 云扬四海</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="云扬四海"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="云扬四海"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta description="一、数据文件的组成innodb数据逻辑存储形式为表空间,而每一个独立表空间都会有一个.ibd数据文件,ibd文件从大到小组成： 一个ibd数据文件–&amp;gt;Segment（段）–&amp;gt;Extent（区）–&amp;gt;Page（页）–&amp;gt;Row（行）  表空间(Tablesapce) 表空间，用于存储多个ibd数据文件，用于存储表的记录和索引，一个文件包含多个段。  段(Segment) 段由数据"><meta property="og:type" content="blog"><meta property="og:title" content="MySQL六：InnoDB数据文件"><meta property="og:url" content="http://ityouknow.cn/2021/08/06/MySQL%E5%85%AD%EF%BC%9AInnoDB%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6/"><meta property="og:site_name" content="云扬四海"><meta property="og:description" content="一、数据文件的组成innodb数据逻辑存储形式为表空间,而每一个独立表空间都会有一个.ibd数据文件,ibd文件从大到小组成： 一个ibd数据文件–&amp;gt;Segment（段）–&amp;gt;Extent（区）–&amp;gt;Page（页）–&amp;gt;Row（行）  表空间(Tablesapce) 表空间，用于存储多个ibd数据文件，用于存储表的记录和索引，一个文件包含多个段。  段(Segment) 段由数据"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061124739.jpeg"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061124654.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061124637.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="article:published_time" content="2021-08-06T08:06:00.000Z"><meta property="article:modified_time" content="2025-12-19T06:50:33.435Z"><meta property="article:author" content="yunlongn"><meta property="article:tag" content="Mysql"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061124739.jpeg"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://ityouknow.cn/2021/08/06/MySQL%E5%85%AD%EF%BC%9AInnoDB%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6/"},"headline":"云扬四海","image":["https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061124654.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061124637.png"],"datePublished":"2021-08-06T08:06:00.000Z","dateModified":"2025-12-19T06:50:33.435Z","author":{"@type":"Person","name":"yunlongn"},"description":"一、数据文件的组成innodb数据逻辑存储形式为表空间,而每一个独立表空间都会有一个.ibd数据文件,ibd文件从大到小组成： 一个ibd数据文件–&gt;Segment（段）–&gt;Extent（区）–&gt;Page（页）–&gt;Row（行）  表空间(Tablesapce) 表空间，用于存储多个ibd数据文件，用于存储表的记录和索引，一个文件包含多个段。  段(Segment) 段由数据"}</script><link rel="canonical" href="http://ityouknow.cn/2021/08/06/MySQL%E5%85%AD%EF%BC%9AInnoDB%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.8.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css"><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script><!--!--><!--!--><meta name="generator" content="Hexo 5.4.2"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/">云扬四海</a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">首页</a><a class="navbar-item" href="/archives">列表</a><a class="navbar-item" href="/categories">类别</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a><a class="navbar-item" href="/yun/fireworks/index.html">fireworks</a><a class="navbar-item" href="/yun/Photo_Wall3D.html">photoWall3D</a><a class="navbar-item" href="/yun/sheep.html">sheep</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-9-tablet is-9-desktop is-9-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2021-08-06T08:06:00.000Z" title="2021-08-06T08:06:00.000Z">2021-08-06</time>发表</span><span class="level-item"><time dateTime="2025-12-19T06:50:33.435Z" title="2025-12-19T06:50:33.435Z">2025-12-19</time>更新</span><span class="level-item"> yunlongn </span><span class="level-item"><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a><span> / </span><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Mysql/">Mysql</a></span><span class="level-item">14 分钟读完 (大约2141个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">MySQL六：InnoDB数据文件</h1><div class="content"><h2 id="一、数据文件的组成"><a href="#一、数据文件的组成" class="headerlink" title="一、数据文件的组成"></a>一、数据文件的组成</h2><p><strong>innodb数据逻辑存储形式为表空间,而每一个独立表空间都会有一个.ibd数据文件</strong>,ibd文件从大到小组成：</p>
+<p>一个ibd数据文件–&gt;Segment（段）–&gt;Extent（区）–&gt;Page（页）–&gt;Row（行）<img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061124739.jpeg" alt="图片"></p>
+<ul>
+<li><p><strong>表空间(Tablesapce)</strong></p>
+<p><strong>表空间，用于存储多个ibd数据文件，用于存储表的记录和索引，一个文件包含多个段。</strong></p>
+</li>
+<li><p><strong>段(Segment)</strong></p>
+<p><strong>段由数据段、索引段、回滚段组成，innodb存储引擎索引与数据共同存储，数据段即是B+树叶节点，索引段则存储非叶节点</strong>。</p>
+</li>
+<li><p><strong>区(Extent)</strong></p>
+<p><strong>区则是由连续页组成，每个区的大小为1M，一个区中一共有64个连续的页</strong>。</p>
+</li>
+<li><p><strong>页(Page)</strong></p>
+<p><strong>页是innodb存储引擎磁盘管理的最小单位，页的大小为16KB，即每次数据的读取与写入都是以页为单位</strong>。</p>
+<blockquote>
+<p>“</p>
+<p>包含很多种页类型，比如数据页，undo页，系统页，事务数据页，大的BLOB对象页</p>
+</blockquote>
+<span id="more"></span></li>
+<li><p><strong>行(Row)</strong></p>
+<p><strong>行包含记录的字段值，事务ID（Trx id）、滚动指针（Roll pointer）、字段指针（Field pointers）等信息。</strong><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+</li>
+</ul>
+<h2 id="二-InnoDB数据页结构"><a href="#二-InnoDB数据页结构" class="headerlink" title="二 InnoDB数据页结构"></a>二 InnoDB数据页结构</h2><p><strong>InnoDB将数据划分为若干个页，以页作为磁盘和内存之间交互的基本单位，InnoDB中页的大小一般为 16KB</strong>。</p>
+<ul>
+<li><strong>页的组成</strong></li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<p>如图所示，InnoDB数据页由以下七个部分组成，</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061124654.png" alt="图片"></p>
+<h3 id="2-1-File-Header（文件头）"><a href="#2-1-File-Header（文件头）" class="headerlink" title="2.1 File Header（文件头）"></a>2.1 File Header（文件头）</h3><p>File Header用来记录页的一些头信息，由如下8个部分组成，共占用38个字节，如表4-3所示：</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061124637.png" alt="图片"></p>
+<ul>
+<li><p><strong>FIL_PAGE_SPACE_OR_CHKSUM</strong></p>
+</li>
+<li><ul>
+<li><p>在MySQL4.0.14版本之前</p>
+<p><strong>该值代表该页属于哪个表空间</strong>，当innodb_file_per_table没有开启事，共享表空间中可能存放了许多页，并且这些页属于不同的表空间。</p>
+</li>
+<li><p>MySQL4.0.14之后版本</p>
+<p>该值代表页的checksum值（一种新的checksum值）。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>FIL_PAGE_OFFSET</strong></p>
+<p>表空间中页的偏移值。</p>
+</li>
+<li><p><strong>FIL_PAGE_PREV，FIL_PAGE_NEXT</strong></p>
+<p>当前页的上一个页以及下一个页。<strong>B+Tree特性决定了叶子节点必须是双向列表。</strong></p>
+</li>
+<li><p><strong>FIL_PAGE_LSN</strong></p>
+<p>该值代表该页最后被修改的日志序列位置LSN（Log Sequence Number）。</p>
+</li>
+<li><p><strong>FIL_PAGE_TYPE</strong></p>
+<p>页的类型。十六进制表示，0x45BF代表B+tree叶结点（存放数据的数据页）。</p>
+</li>
+<li><p><strong>FIL_PAGE_FILE_FLUSH_LSN</strong></p>
+<p>该值仅在数据文件中的一个页中定义，代表文件至少被更新到了该LSN值。</p>
+</li>
+<li><p><strong>FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID</strong></p>
+<p>从MySQL 4.1开始，该值代表页属于哪个表空间。</p>
+</li>
+</ul>
+<h3 id="2-2-Page-Header（页头）"><a href="#2-2-Page-Header（页头）" class="headerlink" title="2.2 Page Header（页头）"></a>2.2 Page Header（页头）</h3><p>用来记录数据页的状态信息，由以下14个部分组成，共占用56个字节。</p>
+<blockquote>
+<p>“</p>
+<p>比如本页中已经存储了多少条记录，第一条记录的地址是什么，页目录中存储了多少个槽等。</p>
+</blockquote>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li><p><strong>PAGE_N_DIR_SLOTS</strong></p>
+<p>在Page Directory（页目录）中的Slot（槽）数。</p>
+</li>
+<li><p><strong>PAGE_HEAP_TOP</strong></p>
+<p>堆中第一个记录的指针。</p>
+</li>
+<li><p><strong>PAGE_N_HEAP</strong></p>
+<p>堆中的记录数。</p>
+</li>
+<li><p><strong>PAGE_FREE</strong></p>
+<p>指向空闲列表的首指针。</p>
+</li>
+<li><p><strong>PAGE_GARBAGE</strong></p>
+<p>已删除记录的字节数，即行记录结构中，delete flag为1的记录大小的总数。</p>
+</li>
+<li><p><strong>PAGE_LAST_INSERT</strong></p>
+<p>最后插入记录的位置。</p>
+</li>
+<li><p><strong>PAGE_DIRECTION</strong></p>
+<p>最后插入的方向。取值为：</p>
+</li>
+<li><ul>
+<li>PAGE_LEFT（0x01）</li>
+<li>PAGE_RIGHT（0x02）</li>
+<li>PAGE_SAME_REC（0x03）</li>
+<li>PAGE_SAME_PAGE（0x04）</li>
+<li>PAGE_NO_DIRECTION（0x05）</li>
+</ul>
+</li>
+<li><p><strong>PAGE_N_DIRECTION</strong></p>
+<p>一个方向连续插入记录的数量。</p>
+</li>
+<li><p><strong>PAGE_N_RECS</strong></p>
+<p>该页中记录的数量。</p>
+</li>
+<li><p><strong>PAGE_MAX_TRX_ID</strong></p>
+<p>修改当前页的最大事务ID，该值仅在Secondary Index定义。</p>
+</li>
+<li><p><strong>PAGE_LEVEL</strong></p>
+<p>当前页在索引树中的位置，0x00代表叶节点。</p>
+</li>
+<li><p><strong>PAGE_INDEX_ID</strong></p>
+<p>当前页属于哪个索引ID。</p>
+</li>
+<li><p><strong>PAGE_BTR_SEG_LEAF</strong></p>
+<p>B+树的叶节点中，文件段的首指针位置。注意该值仅在B+树的Root页中定义。</p>
+</li>
+<li><p><strong>PAGE_BTR_SEG_TOP</strong></p>
+<p>B+树的非叶节点中，文件段的首指针位置。注意该值仅在B+树的Root页中定义。<img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+</li>
+</ul>
+<h3 id="2-3-Infimun-Supremum-Records"><a href="#2-3-Infimun-Supremum-Records" class="headerlink" title="2.3 Infimun+Supremum Records"></a>2.3 Infimun+Supremum Records</h3><p><strong>在InnoDB存储引擎中，每个数据页中有两个虚拟的行记录，用来限定记录的边界。</strong></p>
+<ul>
+<li>Infimum记录是比该页中任何主键值都要小的值。</li>
+<li>Supremum指比任何可能大的值还要大的值。</li>
+</ul>
+<p>这两个值在页创建时被建立，并且在任何情况下不会被删除，如下图 ：</p>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<h3 id="2-4-User-Records（用户记录，即行记录）"><a href="#2-4-User-Records（用户记录，即行记录）" class="headerlink" title="2.4 User Records（用户记录，即行记录）"></a>2.4 User Records（用户记录，即行记录）</h3><p><strong>User Records即实际存储行记录的内容，InnoDB存储引擎表总是B+树索引组织的</strong>。</p>
+<blockquote>
+<p>“</p>
+<p><strong>每当我们插入一条记录，都会从Free Space部分申请一个记录大小的空间划分到User Records部分</strong>，当Free Space部分的空间全部被User Records部分替代掉之后，当前页就被用完了，此时如果还有新的记录插入就需要申请新的页了。</p>
+</blockquote>
+<h3 id="2-5-Free-Space（空闲空间）"><a href="#2-5-Free-Space（空闲空间）" class="headerlink" title="2.5 Free Space（空闲空间）"></a>2.5 Free Space（空闲空间）</h3><p><strong>Free Space指的就是空闲空间，同样也是个链表数据结构</strong>。当一条记录被删除后，该空间会被加入空闲链表中。</p>
+<h3 id="2-6-Page-Directory（页目录）"><a href="#2-6-Page-Directory（页目录）" class="headerlink" title="2.6 Page Directory（页目录）"></a>2.6 Page Directory（页目录）</h3><p>Page Directory（页目录）中存放了记录的<strong>相对位置</strong></p>
+<ul>
+<li>所有正常的记录（包括最大和最小记录，不包括为已删除的记录）会被划分为几个组。</li>
+<li>每个组的最后一条记录的头信息中的n_owned属性表示该组内共有几条记录。</li>
+<li>将每个组的最后一条记录的地址偏移量按顺序存储起来，每个地址偏移量也被称为一个槽。这些地址偏移量都会被存储到靠近页的尾部的地方。</li>
+</ul>
+<p><strong>InnoDB并不是每个记录拥有一个槽，InnoDB存储引擎的槽是一个稀疏目录（sparse directory），即一个槽中可能属于（belong to）多个记录，最少属于4条记录，最多属于8条记录。</strong></p>
+<blockquote>
+<p>“</p>
+<p>Slots中记录按照键顺序存放，这样可以利用二叉查找迅速找到记录的指针。假设有（’i’，’d’，’c’，’b’，’e’，’g’，’l’，’h’，’f’，’j’，’k’，’a’），同时假设一个槽中包含4条记录，则Slots中的记录可能是（’a’，’e’，’i’），然后通过recorder header中的next_record来继续查找相关记录。</p>
+</blockquote>
+<p><strong>【B+树索引本身并不能找到具体的一条记录，B+树索引能找到只是该记录所在的页】。数据库把页载入内存，然后通过Page Directory再进行二叉查找。由于二叉查找的时间复杂度很低，同时内存中的查找很快，因此通常我们忽略了这部分查找所用的时间。</strong></p>
+<p>所以在一个数据页中查找指定主键值的记录的过程分为两步：</p>
+<ul>
+<li>通过二分法确定该记录所在的槽。</li>
+<li>通过记录的next_record属性组成的链表遍历查找该槽中的各个记录。</li>
+</ul>
+<h3 id="2-7-File-Trailer（文件结尾信息）"><a href="#2-7-File-Trailer（文件结尾信息）" class="headerlink" title="2.7 File Trailer（文件结尾信息）"></a>2.7 File Trailer（文件结尾信息）</h3><p>File Trailer只有一个FIL_PAGE_END_LSN部分，占用8个字节。</p>
+<ul>
+<li><p><strong>主要作用</strong></p>
+<p>保证页能够完整地写入磁盘，校验数据完整性。</p>
+<blockquote>
+<p>“</p>
+<p>写入过程中磁盘损坏、机器宕机时</p>
+</blockquote>
+</li>
+<li><p><strong>具体方法</strong></p>
+<p>前4个字节代表该页的checksum值，最后4个字节和File Header中的FIL_PAGE_LSN相同。</p>
+<p>通过这两个值来和File Header中的FIL_PAGE_SPACE_OR_CHKSUM和FIL_PAGE_LSN值进行比较，看是否一致，以此来保证页的完整性（not corrupted）</p>
+</li>
+</ul>
+</div><div class="article-licensing box"><div class="licensing-title"><p>MySQL六：InnoDB数据文件</p><p><a href="http://ityouknow.cn/2021/08/06/MySQL%E5%85%AD%EF%BC%9AInnoDB%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6/">http://ityouknow.cn/2021/08/06/MySQL%E5%85%AD%EF%BC%9AInnoDB%E6%95%B0%E6%8D%AE%E6%96%87%E4%BB%B6/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>yunlongn</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2021-08-06</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-12-19</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icon" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a><a class="icon" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a><a class="icon" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/Mysql/">Mysql</a></div><div class="bdsharebuttonbox"><a class="bds_more" href="#" data-cmd="more"></a><a class="bds_qzone" href="#" data-cmd="qzone" title="分享到QQ空间"></a><a class="bds_tsina" href="#" data-cmd="tsina" title="分享到新浪微博"></a><a class="bds_tqq" href="#" data-cmd="tqq" title="分享到腾讯微博"></a><a class="bds_renren" href="#" data-cmd="renren" title="分享到人人网"></a><a class="bds_weixin" href="#" data-cmd="weixin" title="分享到微信"></a></div><script>window._bd_share_config = { "common": { "bdSnsKey": {}, "bdText": "", "bdMini": "2", "bdPic": "", "bdStyle": "0", "bdSize": "16" }, "share": {} }; with (document) 0[(getElementsByTagName('head')[0] || body).appendChild(createElement('script')).src = 'http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion=' + ~(-new Date() / 36e5)];</script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/" alt="支付宝"></span></a><a class="button donate" href="/" target="_blank" rel="noopener" data-type="buymeacoffee"><span class="icon is-small"><i class="fas fa-coffee"></i></span><span>送我杯咖啡</span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/2021/08/06/MySQL%E4%B8%83%EF%BC%9A%E4%B8%80%E6%96%87%E8%AF%A6%E8%A7%A3%E5%85%AD%E5%A4%A7%E6%97%A5%E5%BF%97/"><i class="level-item fas fa-chevron-left"></i><span class="level-item">MySQL(七)：一文详解六大日志</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2021/08/06/MySQL%E4%BA%94%EF%BC%9AInnoDB%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/"><span class="level-item">MySQL五：InnoDB线程模型</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div id="comment-container"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.css"><script src="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script><script>var gitalk = new Gitalk({
+            id: "0c8a2dee0fdac7dd2ae1404c3eb9d565",
+            repo: "yunlongn.github.io",
+            owner: "yunlongn",
+            clientID: "fb8ffef00dff08ccb06c",
+            clientSecret: "935a05558f847f4321d3c64b4c0c2498697a2bda",
+            admin: "yunlongn",
+            createIssueManually: false,
+            distractionFreeMode: false,
+            perPage: 10,
+            pagerDirection: "last",
+            
+            
+            enableHotKey: true,
+            
+        })
+        gitalk.render('comment-container')</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar" src="/img/avatar.png" alt="云扬四海"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">云扬四海</p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">77</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">24</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">29</p></a></div></div></nav><div class="level"><a class="level-item button is-primary is-rounded" href="http://github.com/yunlongn" target="_blank" rel="noopener">关注我</a></div><div class="level is-mobile"><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Github" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="cnblogs" href="https://www.cnblogs.com/rolandlee/"><i class="fas fa-book"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="RSS" href="/atom.xml"><i class="fas fa-rss"></i></a></div></div></div><!--!--><div class="card widget" data-type="tagscloud" style="transition: opacity 0.3s ease-out 0s, transform 0.3s ease-out 0s; opacity: 1; transform-origin: center top;"><div class="card-content" id="tags"><h3 class="menu-label">标签云</h3><a href="/tags/JVM/" style="color:rgb(148,118,127);font-size:14px">JVM<span class="tag-cloud-count">(1) </span></a><a href="/tags/Java/" style="color:rgb(199,110,109);font-size:21px">Java<span class="tag-cloud-count">(5) </span></a><a href="/tags/Mysql/" style="color:rgb(146,123,88);font-size:19px">Mysql<span class="tag-cloud-count">(18) </span></a><a href="/tags/Netty/" style="color:rgb(180,117,119);font-size:22px">Netty<span class="tag-cloud-count">(1) </span></a><a href="/tags/Nginx/" style="color:rgb(143,124,120);font-size:14px">Nginx<span class="tag-cloud-count">(1) </span></a><a href="/tags/SpringBoot/" style="color:rgb(130,159,125);font-size:17px">SpringBoot<span class="tag-cloud-count">(2) </span></a><a href="/tags/heroku/" style="color:rgb(137,124,96);font-size:13px">heroku<span class="tag-cloud-count">(1) </span></a><a href="/tags/java/" style="color:rgb(165,124,83);font-size:20px">java<span class="tag-cloud-count">(1) </span></a><a href="/tags/java%E5%9F%BA%E7%A1%80/" style="color:rgb(188,101,138);font-size:20px">java基础<span class="tag-cloud-count">(2) </span></a><a href="/tags/java%E6%A0%B8%E5%BF%83/" style="color:rgb(188,125,120);font-size:13px">java核心<span class="tag-cloud-count">(1) </span></a><a href="/tags/linux/" style="color:rgb(199,104,142);font-size:15px">linux<span class="tag-cloud-count">(1) </span></a><a href="/tags/mq/" style="color:rgb(176,169,100);font-size:17px">mq<span class="tag-cloud-count">(1) </span></a><a href="/tags/mybatisPlus/" style="color:rgb(137,139,80);font-size:20px">mybatisPlus<span class="tag-cloud-count">(1) </span></a><a href="/tags/nio/" style="color:rgb(146,124,102);font-size:20px">nio<span class="tag-cloud-count">(1) </span></a><a href="/tags/servlet/" style="color:rgb(148,129,91);font-size:15px">servlet<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BA%8B%E5%8A%A1/" style="color:rgb(142,118,102);font-size:20px">事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BF%A1%E5%8F%B7%E9%87%8F/" style="color:rgb(138,102,142);font-size:15px">信号量<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" style="color:rgb(171,171,140);font-size:13px">分布式事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9B%BE%E7%89%87%E8%AF%86%E5%88%AB/" style="color:rgb(136,153,108);font-size:18px">图片识别<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9F%BA%E6%9C%AC%E5%91%BD%E4%BB%A4/" style="color:rgb(151,156,115);font-size:16px">基本命令<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/" style="color:rgb(190,108,84);font-size:13px">小程序<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B7%A5%E5%85%B7/" style="color:rgb(166,156,87);font-size:19px">工具<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%80%A7%E8%83%BD/" style="color:rgb(151,157,135);font-size:16px">性能<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%8A%80%E5%B7%A7/" style="color:rgb(195,145,134);font-size:14px">技巧<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E7%AD%BE%E5%90%8D/" style="color:rgb(177,136,147);font-size:19px">签名<span class="tag-cloud-count">(2) </span></a><a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="color:rgb(171,138,87);font-size:19px">设计模式<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/" style="color:rgb(139,143,104);font-size:16px">读书笔记<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%98%B2%E7%9B%97%E9%93%BE/" style="color:rgb(183,164,132);font-size:19px">防盗链<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="color:rgb(170,157,115);font-size:18px">面试<span class="tag-cloud-count">(1) </span></a></div></div><div class="card widget" data-type="links"><div class="card-content"><div class="menu"><h3 class="menu-label">链接</h3><ul class="menu-list"><li><a class="level is-mobile" href="http://www.ityouknow.com" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">纯洁的微笑</span></span><span class="level-right"><span class="level-item tag">www.ityouknow.com</span></span></a></li><li><a class="level is-mobile" href="https://blog.52itstyle.vip/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">柒&#039;s</span></span><span class="level-right"><span class="level-item tag">blog.52itstyle.vip</span></span></a></li><li><a class="level is-mobile" href="https://www.wdk.pw/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">王登科</span></span><span class="level-right"><span class="level-item tag">www.wdk.pw</span></span></a></li></ul></div></div></div></div><!--!--></div></div></section><embed src="/img/footer.svg" id="galinv" type="image/svg+xml"><footer class="footer"><div class="footer-image"><img src="/img/o_cnblogs_footer.png" width="60%"></div><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/">云扬四海</a><p class="is-size-7"><span>&copy; 2025 yunlongn</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/yunlongn"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" async></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>

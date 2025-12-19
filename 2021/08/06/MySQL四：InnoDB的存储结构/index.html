@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>MySQL四：InnoDB的存储结构 - 云扬四海</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="云扬四海"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="云扬四海"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta description="「MySQL存储引擎最大的特点就是【插件化】，可以根据自己的需求使用不同的存储引擎，innodb存储引擎支持行级锁以及事务特性，也是多种场合使用较多的存储引擎。」  当官方的存储引擎不足以满足时，我们通过抽象的API接口实现自己的存储引擎。 抽象存储引擎API接口是通过抽象类handler来实现，handler类提供诸如打开&amp;#x2F;关闭table、扫表、查询Key数据、写记录、删除记录等基础操作方法。"><meta property="og:type" content="blog"><meta property="og:title" content="MySQL四：InnoDB的存储结构"><meta property="og:url" content="http://ityouknow.cn/2021/08/06/MySQL%E5%9B%9B%EF%BC%9AInnoDB%E7%9A%84%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84/"><meta property="og:site_name" content="云扬四海"><meta property="og:description" content="「MySQL存储引擎最大的特点就是【插件化】，可以根据自己的需求使用不同的存储引擎，innodb存储引擎支持行级锁以及事务特性，也是多种场合使用较多的存储引擎。」  当官方的存储引擎不足以满足时，我们通过抽象的API接口实现自己的存储引擎。 抽象存储引擎API接口是通过抽象类handler来实现，handler类提供诸如打开&amp;#x2F;关闭table、扫表、查询Key数据、写记录、删除记录等基础操作方法。"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122170.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122065.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122030.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122027.png"><meta property="article:published_time" content="2021-08-06T08:04:00.000Z"><meta property="article:modified_time" content="2025-12-19T06:50:33.441Z"><meta property="article:author" content="yunlongn"><meta property="article:tag" content="Mysql"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://ityouknow.cn/2021/08/06/MySQL%E5%9B%9B%EF%BC%9AInnoDB%E7%9A%84%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84/"},"headline":"云扬四海","image":["https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122170.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122065.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122030.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122027.png"],"datePublished":"2021-08-06T08:04:00.000Z","dateModified":"2025-12-19T06:50:33.441Z","author":{"@type":"Person","name":"yunlongn"},"description":"「MySQL存储引擎最大的特点就是【插件化】，可以根据自己的需求使用不同的存储引擎，innodb存储引擎支持行级锁以及事务特性，也是多种场合使用较多的存储引擎。」  当官方的存储引擎不足以满足时，我们通过抽象的API接口实现自己的存储引擎。 抽象存储引擎API接口是通过抽象类handler来实现，handler类提供诸如打开&#x2F;关闭table、扫表、查询Key数据、写记录、删除记录等基础操作方法。"}</script><link rel="canonical" href="http://ityouknow.cn/2021/08/06/MySQL%E5%9B%9B%EF%BC%9AInnoDB%E7%9A%84%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.8.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css"><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script><!--!--><!--!--><meta name="generator" content="Hexo 5.4.2"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/">云扬四海</a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">首页</a><a class="navbar-item" href="/archives">列表</a><a class="navbar-item" href="/categories">类别</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a><a class="navbar-item" href="/yun/fireworks/index.html">fireworks</a><a class="navbar-item" href="/yun/Photo_Wall3D.html">photoWall3D</a><a class="navbar-item" href="/yun/sheep.html">sheep</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-9-tablet is-9-desktop is-9-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2021-08-06T08:04:00.000Z" title="2021-08-06T08:04:00.000Z">2021-08-06</time>发表</span><span class="level-item"><time dateTime="2025-12-19T06:50:33.441Z" title="2025-12-19T06:50:33.441Z">2025-12-19</time>更新</span><span class="level-item"> yunlongn </span><span class="level-item"><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a><span> / </span><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Mysql/">Mysql</a></span><span class="level-item">28 分钟读完 (大约4259个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">MySQL四：InnoDB的存储结构</h1><div class="content"><p><strong>「MySQL存储引擎最大的特点就是【插件化】，可以根据自己的需求使用不同的存储引擎，innodb存储引擎支持行级锁以及事务特性，也是多种场合使用较多的存储引擎。」</strong></p>
+<blockquote>
+<p>当官方的存储引擎不足以满足时，我们通过抽象的API接口实现自己的存储引擎。</p>
+<p>抽象存储引擎API接口是通过抽象类handler来实现，handler类提供诸如打开/关闭table、扫表、查询Key数据、写记录、删除记录等基础操作方法。</p>
+<p>每一个存储引擎通过继承handler类，实现以上提到的方法，在方法里面实现对底层存储引擎的读写接口的转调。</p>
+</blockquote>
+<span id="more"></span>
+
+<p><strong>「InnoDB是为处理巨大数据量时的最大性能设计。它的CPU效率可能是任何其它基于磁盘的关系数据库引擎所不能匹敌的」</strong>。这是官网给出的一句话，可见InnoDB在mysql中的地位。</p>
+<ul>
+<li>在MYSQL5.5版本，具体是在5.5.8版本之后,，<strong>「InnoDB代替MYISAM称为MYSQL的默认存储引擎」</strong>。</li>
+<li>InnoDB存储引擎支持事务，具有自动崩溃恢复的特性，特点是行锁设计、支持外键，并支持类似于Oracle的非锁定读，即默认读取操作不会产生锁，在日常开发中使用非常广泛。</li>
+</ul>
+<h2 id="一、InnoDB架构组成"><a href="#一、InnoDB架构组成" class="headerlink" title="一、InnoDB架构组成"></a><strong>一、InnoDB架构组成</strong></h2><p>InnoDB的存储结构分为<strong>「内存结构(左)和磁盘结构(右)两大部分」</strong>，</p>
+<p>官方的InnoDB引擎架构图如下：</p>
+<ul>
+<li>MySQL 5.7以前的版本</li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li>MySQL 5.7 版本</li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122170.png" alt="图片"></p>
+<p>由上面两张架构图可以看出，<strong>「InnoDB存储结构在MySQL 5.7 版本之后做了一些调整」</strong></p>
+<ul>
+<li>将 Undo日志表空间从共享表空间 ibdata 文件中分离出来，可以在安装MySQL 时由用户自行指定文件大小和数量。</li>
+<li>增加了 temporary 临时表空间，里面存储着临时表或临时查询结果集的数据。</li>
+<li>Buffer Pool 大小可以动态修改，无需重启数据库实例。</li>
+</ul>
+<h2 id="二、-InnoDB内存结构"><a href="#二、-InnoDB内存结构" class="headerlink" title="二、 InnoDB内存结构"></a><strong>二、 InnoDB内存结构</strong></h2><p>从架构图中可以看出【<strong>「内存结构主要包括Buffer Pool、Change Buffer、Adaptive Hash Index和Log Buffer四大组件」</strong>】。</p>
+<h3 id="2-1-Buffer-Pool"><a href="#2-1-Buffer-Pool" class="headerlink" title="2.1 Buffer Pool"></a>2.1 Buffer Pool</h3><p><strong>「即【缓冲池，简称BP】。BP以Page页为单位，默认大小16K，BP的底层采用链表数据结构管理Page」</strong>。</p>
+<p>在InnoDB访问表记录和索引时会在Page页中缓存，以后使用可以减少磁 盘IO操作，提升效率。</p>
+<ul>
+<li><p><strong>「Page管理机制」</strong></p>
+<p>Page根据状态可以分为三种类型：</p>
+<p><strong>「InnoDB通过三种链表结构来维护和管理上述三种page类型」</strong></p>
+</li>
+<li><ul>
+<li><p>【free list】：空闲缓冲区，管理free page</p>
+</li>
+<li><p>【flush list】：刷新到磁盘的缓冲区，管理dirty page</p>
+<p>内部page按修改时间排序。脏页即存在于flush链表，也在LRU链表中，两种互不影响，<strong>「LRU链表负责管理page的可用性和释放，而flush链表负责管理脏页的刷盘操作」</strong> 。</p>
+</li>
+<li><p>【lru list】：正在使用的缓冲区，管理clean page和dirty page</p>
+<p>缓冲区以midpoint为基点：</p>
+<p>前面链表称为new列表区，存放经常访问的数据，占63%；</p>
+<p>后面的链表称为old列表区，存放使用较少数据，占37%。</p>
+</li>
+<li><p>【free page】 ：空闲page，未被使用</p>
+</li>
+<li><p>【clean page】：被使用page，数据没有被修改过</p>
+</li>
+<li><p>【dirty page】：脏页，page的数据被修改过，页中数据和磁盘的数据产生了不 一致</p>
+</li>
+</ul>
+</li>
+<li><p><strong>「改进型LRU算法维护」</strong></p>
+<blockquote>
+<p><strong>「每当有新的page数据读取到buffer pool时，InnoDb引擎会判断是否有空闲页，是否足够，如果有就将free page从free list列表删除，放入到LRU列表中。没有空闲页，就会根据LRU算法淘汰LRU链表默认的页，将内存空间释放分配给新的页。」</strong></p>
+</blockquote>
+</li>
+<li><ul>
+<li><p><strong>「普通LRU」</strong></p>
+<p>末尾淘汰法，新数据从链表头部加入，释放空间时从末尾淘汰</p>
+</li>
+<li><p><strong>「改性LRU」</strong></p>
+<p><strong>「链表分为new和old两个部分，加入元素时并不是从表头插入，而是从中间midpoint位置插入」</strong>，如果数据很快被访问，那么page就会向new列表头部移动，如果数据没有被访问，会逐步向old尾部移动，等待淘汰。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>「Buffer Pool配置参数」</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show variables like &#39;%innodb_page_size%&#39;;</span><br></pre></td></tr></table></figure>
+</li>
+<li><ul>
+<li>查看page页大小</li>
+</ul>
+</li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li>查看lru list中old列表参数</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show variables like &#39;%innodb_old%&#39;;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122065.png" alt="图片"></p>
+<ul>
+<li>查看buffer pool参数</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show variables like &#39;%innodb_buffer%&#39;;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122030.png" alt="图片"></p>
+<p><strong>「一般我们将innodb_buffer_pool_size设置为总内存大小的60%-80%， innodb_buffer_pool_instances可以设置为多个避免缓存争夺。」</strong></p>
+<h3 id="2-2-Change-Buffer"><a href="#2-2-Change-Buffer" class="headerlink" title="2.2 Change Buffer"></a>2.2 Change Buffer</h3><p><strong>「写【缓冲区，简称CB】。在进行DML操作时，如果BP没有其相应的Page数据， 并不会立刻将磁盘页加载到缓冲池，而是在CB记录缓冲变更，等未来数据被读取时，再将数据合并恢复到BP中。」</strong></p>
+<ul>
+<li><strong>「ChangeBuffer占用BufferPool空间」</strong>，默认占25%，最大允许占50%，可以根据读写业务量来进行调整。</li>
+</ul>
+<p>调整参数为：innodb_change_buffer_max_size</p>
+<blockquote>
+<p><strong>「当更新一条记录时，该记录在BufferPool存在，直接在BufferPool修改，一次内存操作。」</strong></p>
+<p><strong>「如果该记录在BufferPool不存在（没有命中），会直接在ChangeBuffer进行一次内存操作，不用再去磁盘查询数据，避免一次磁盘IO。」</strong></p>
+<p><strong>「当下次查询记录时，会先进行磁盘读取，然后再从 ChangeBuffer中读取信息合并，最终载入BufferPool中。」</strong></p>
+</blockquote>
+<ul>
+<li><strong>「写缓冲区仅适用于非唯一普通索引页」</strong></li>
+</ul>
+<blockquote>
+<p>如果在索引设置唯一性，在进行修改时，InnoDB必须要做唯一性校验，因此必须查询磁盘， 做一次IO操作。会直接将记录查询到BufferPool中，然后在缓冲池修改，不会在 ChangeBuffer操作。</p>
+</blockquote>
+<h3 id="2-3-Adaptive-Hash-Index"><a href="#2-3-Adaptive-Hash-Index" class="headerlink" title="2.3 Adaptive Hash Index"></a>2.3 Adaptive Hash Index</h3><p><strong>「即【自适应哈希索引】，用于优化对BP数据的查询」</strong>。</p>
+<p><strong>「InnoDB存储引擎会监控对表索引的查找，如果观察到建立哈希索引可以带来速度的提升，则建立自适应哈希索引，所以称之为自适应」</strong>。InnoDB存储引擎会自动根据访问的频率和模式来为某些页建立哈希索引。</p>
+<p>实现本质上就是一个从某个检索条件到某个数据页的【哈希表】。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; show variables like &#39;%hash%&#39;;</span><br><span class="line">+----------------------------------+-------+</span><br><span class="line">| Variable_name                    | Value |</span><br><span class="line">+----------------------------------+-------+</span><br><span class="line">| innodb_adaptive_hash_index       | ON    |</span><br><span class="line">| innodb_adaptive_hash_index_parts | 8     |</span><br><span class="line">+----------------------------------+-------+</span><br><span class="line">2 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p><strong>「innodb_adaptive_hash_index」</strong></p>
+<p>控制innodb自适应哈希索引特性是否开启参数</p>
+</li>
+<li><p><strong>「innodb_adaptive_hash_index_parts」</strong></p>
+<p>凡是缓存都会涉及多个缓存消费者间的锁竞争。</p>
+<p>MySQL通过设立多个AHI分区，每个分区使用独立的锁，来减少锁竞争。</p>
+</li>
+</ul>
+<h3 id="2-4-Log-Buffer"><a href="#2-4-Log-Buffer" class="headerlink" title="2.4 Log Buffer"></a>2.4 Log Buffer</h3><p><strong>「即【日志缓冲区】，用来保存要写入磁盘上log文件（Redo/Undo）的数据」</strong>。</p>
+<p>日志缓冲区刷盘时机：</p>
+<ul>
+<li>日志缓冲区的内容<strong>「定期刷新」</strong>到磁盘log文件中。</li>
+<li><strong>「日志缓冲区满时会自动将其刷新」</strong>到磁盘，可以改变innodb_log_buffer_size参数大小，减少磁盘IO频率。</li>
+</ul>
+<p>当遇到BLOB类型或多行更新的大事务操作时，增加日志缓冲区可以节省磁盘I/O。</p>
+<p>LogBuffer主要是用于记录InnoDB引擎日志，在DML操作时会产生Redo和Undo日志。</p>
+<h2 id="三、-InnoDB磁盘结构"><a href="#三、-InnoDB磁盘结构" class="headerlink" title="三、 InnoDB磁盘结构"></a><strong>三、 InnoDB磁盘结构</strong></h2><p>InnoDB磁盘主要包含【Tablespaces，InnoDB Data Dictionary，Doublewrite Buffer、Redo Log 和Undo Logs】五部分组成。</p>
+<h3 id="3-1-表空间（Tablespaces）"><a href="#3-1-表空间（Tablespaces）" class="headerlink" title="3.1 表空间（Tablespaces）"></a>3.1 表空间（Tablespaces）</h3><p>innodb存储引擎在存储设计上模仿了Oracle的存储结构，其数据是按照表空间进行管理的。<strong>「表空间用于存储表结构和数据」</strong>。表空间又分为系统表空间、独立表空间、 通用表空间、临时表空间、Undo表空间等多种类型。</p>
+<h4 id="3-1-1-表空间组成"><a href="#3-1-1-表空间组成" class="headerlink" title="3.1.1 表空间组成"></a>3.1.1 表空间组成</h4><ul>
+<li><p><strong>「物理结构组成」</strong></p>
+<p><strong>「在系统表空间由于所有的表公用一个.ibdatat1数据文件，所以针对每个表只有一个.frm表结构文件」</strong>。</p>
+<p><strong>「在独立表空间中，每个表分别都有一个.frm表结构文件，一个.ibd数据文件」</strong>。</p>
+<p>innodb存储引擎物理组织形式可以理解为其在磁盘的存储形式，表现为各种文件，其分类大概为</p>
+<table>
+<thead>
+<tr>
+<th align="left">文件</th>
+<th align="left">功能</th>
+<th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">ibdatat1</td>
+<td align="left">共享表空间文件</td>
+<td align="left">系统/共享表空间，存储各种缓冲数据</td>
+</tr>
+<tr>
+<td align="left">.frm</td>
+<td align="left">表定义文件</td>
+<td align="left">记录表的定义，列名以及列的数据类型</td>
+</tr>
+<tr>
+<td align="left">.ibd</td>
+<td align="left">表数据存储文件</td>
+<td align="left">独立表空间，存储数据表的数据，按行存储</td>
+</tr>
+<tr>
+<td align="left">ib_logfile0/1</td>
+<td align="left">redo日志文件</td>
+<td align="left">重做日志文件，一共两个循环使用，一个写完即写另一个</td>
+</tr>
+</tbody></table>
+</li>
+</ul>
+<p><strong>「表空间是innodb存储引擎逻辑结构的最高层，所有的数据都存储在表空间中，默认innodb有一个共享表空间，所有的数据都存储在共享表空间中，可以通参数innodb_per_table设置每张表单独存放在一个表空间中」</strong>。</p>
+<ul>
+<li><strong>「独立表空间内存储的只是数据、索引、插入缓冲页」</strong>。</li>
+<li><strong>「回滚日志、插入缓冲索引页、事务信息、二次写缓冲等其他数据还是存放在共享表空间」</strong>。</li>
+</ul>
+<h4 id="3-1-2-表空间的五种类型"><a href="#3-1-2-表空间的五种类型" class="headerlink" title="3.1.2 表空间的五种类型"></a>3.1.2 表空间的五种类型</h4><ul>
+<li><p><strong>「系统表空间」</strong>（The System Tablespace）</p>
+<blockquote>
+<p>innodb_data_file_path用来指定innodb tablespace文件，如果我们不在My.cnf文件中指定innodb_data_home_dir和innodb_data_file_path那么默认会在datadir目录下创建ibdata1 作为innodb tablespace。</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">#默认值:</span><br><span class="line">innodb_data_file_path &#x3D; ibdata1:12M:autoextend</span><br><span class="line"># ibdata1 : 文件名为ibdata1</span><br><span class="line"># 12M : 大小为12M</span><br><span class="line"># autoextend : 自动扩展</span><br></pre></td></tr></table></figure>
+</li>
+<li><ul>
+<li>包含InnoDB数据字典，Doublewrite Buffer，Change Buffer，Undo Logs的<strong>「存储区域」</strong>。</li>
+<li>系统表空间也默认包含任何用户在<strong>「系统表空间创建」</strong>的表数据和索引数据。</li>
+<li>系统表空间是一个共享的表空间因为它是被多个表共享的。</li>
+</ul>
+</li>
+<li><p><strong>「独立表空间」</strong>（File-Per-Table Tablespaces）</p>
+<p><strong>「默认开启，独立表空间是一个单表表空间，该表创建于自己的数据文件中，而非创建于系统表空间中」</strong>。</p>
+<p>开启独立表空间参数为：innodb_file_per_table</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">innodb_file_per_table &#x3D; ON：独立表空间：tablename.ibd</span><br><span class="line">innodb_file_per_table &#x3D; OFF：系统表空间：ibdataX</span><br></pre></td></tr></table></figure>
+</li>
+<li><ul>
+<li><p>【innodb_file_per_table = ON】</p>
+<p><strong>「新建表被创建于【表空间】中,每一个表建立ibd的扩展文件,文件名为：表名.ibd」</strong>，该文件默认被创建于数据库目录中,表空间的表文件支持动态和压缩行格式。</p>
+</li>
+<li><p>【innodb_file_per_table = OFF】</p>
+<p><strong>「innodb将被创建于【系统表空间】中，即ibdataX中」</strong>。X代表从1开始的一个数字</p>
+</li>
+<li><p>【查看表的存储表空间的存储方式值】</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show variables like &#39;innodb_file_per_table&#39;;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+</li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061122027.png" alt="图片"></p>
+<ul>
+<li><p>【修改存储表空间的存储方式值为OFF】</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">set global innodb_file_per_table&#x3D;off;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>「通用表空间」</strong>（General Tablespaces）</p>
+<p>通用表空间为通过create tablespace语法创建的共享表空间。通用表空间可以创建于 mysql数据目录外的其他表空间，其可以容纳多张表，且其支持所有的行格式。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">#创建表空间tablespaces1</span><br><span class="line">CREATE TABLESPACE tablespaces1 ADD DATAFILE tablespaces1.ibd Engine&#x3D;InnoDB; </span><br><span class="line">#将表添加到test1表空间</span><br><span class="line">CREATE TABLE test1 (c1 INT PRIMARY KEY) TABLESPACE tablespaces1;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>「撤销表空间」</strong>（Undo Tablespaces）</p>
+<p><strong>「撤销表空间由一个或多个包含Undo日志文件组成。」</strong></p>
+<blockquote>
+<p>在MySQL 5.7版本之前Undo占用的是System Tablespace共享区，从5.7开始将Undo从System Tablespace分离了出来。</p>
+</blockquote>
+</li>
+<li><ul>
+<li><p>【innodb_undo_tablespaces】</p>
+<p>innodb_undo_tablespaces = 0 ：默认值，表示使用系统表空间ibdata1</p>
+<p>innodb_undo_tablespaces = 1：大于0表示使用undo表空间undo_001、 undo_002等</p>
+</li>
+</ul>
+</li>
+<li><p><strong>「临时表空间」</strong>（Temporary Tablespaces）</p>
+<p><strong>「mysql服务器正常关闭或异常终止时，临时表空间将被移除，每次启动时会被重新创建」</strong>。</p>
+<p>临时表空间分为两种：</p>
+</li>
+<li><ul>
+<li><p>【session temporary tablespaces】</p>
+<p>存储的是用户创建的临时表和磁盘内部的临时表</p>
+</li>
+<li><p>【global temporary tablespace】</p>
+<p>储存用户临时表的回滚段（rollback segments ）</p>
+</li>
+</ul>
+</li>
+</ul>
+<h4 id="3-1-3-系统表空间与独立表空间怎么选择"><a href="#3-1-3-系统表空间与独立表空间怎么选择" class="headerlink" title="3.1.3 系统表空间与独立表空间怎么选择"></a>3.1.3 系统表空间与独立表空间怎么选择</h4><p>系统表空间与独立表空间都是<strong>「存储表结构和数据」</strong>，只是存储位置和方法不同，那么应该怎么选择呢</p>
+<ul>
+<li><p>系统表空间与独立表空间差异</p>
+</li>
+<li><ul>
+<li>系统表空间由于所有的数据都放ibdataX文件中，<strong>「容易产生IO瓶颈」</strong></li>
+<li>独立表空间单表存储，可以同时刷新多个文件数据</li>
+</ul>
+</li>
+</ul>
+<p><strong>「基于此，我们一般都是使用独立的表空间进行管理，独立表空间也是默认的配置」</strong></p>
+<ul>
+<li><p>如何把系统表空间中的表转移到独立表空间中</p>
+</li>
+<li><ul>
+<li><p>使用mysqldump导出所有数据库表的数据(备份)。</p>
+</li>
+<li><p>停止MYSQL服务器，修改my.conf配置，删除原来innodb表空间的相关文件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#修改my.conf配置</span><br><span class="line">innodb_file_per_table &#x3D; ON</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>重启MYSQL服务,并重建Innodb系统表空间</p>
+</li>
+<li><p>重新导入备份的数据</p>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-2数据字典（InnoDB-Data-Dictionary）"><a href="#3-2数据字典（InnoDB-Data-Dictionary）" class="headerlink" title="3.2数据字典（InnoDB Data Dictionary）"></a>3.2数据字典（InnoDB Data Dictionary）</h3><p><strong>「InnoDB数据字典由内部系统表组成」</strong>。这些表包含用于查找表、索引和表字段等对象的元数据。</p>
+<p>元数据物理上位于InnoDB系统表空间中。数据字典元数据在一定程度上 与InnoDB表元数据文件（.frm文件）中存储的信息重叠。</p>
+<h3 id="3-3-双写缓冲区（Doublewrite-Buffer）"><a href="#3-3-双写缓冲区（Doublewrite-Buffer）" class="headerlink" title="3.3 双写缓冲区（Doublewrite Buffer）"></a>3.3 双写缓冲区（Doublewrite Buffer）</h3><p><strong>「位于系统表空间，是一个存储区域」</strong>。</p>
+<blockquote>
+<p>在BufferPage的page页刷新到磁盘真正的位置前，会先将数据存在Doublewrite 缓冲区。如果在page页写入过程中出现操作系统、存储子系统或 mysqld进程崩溃，InnoDB可以在崩溃恢复期间从Doublewrite缓冲区中找到page页备份。在大多数情况下，默认情况下启用双写缓冲区。</p>
+</blockquote>
+<ul>
+<li><p>innodb_doublewrite = 0 ：禁用Doublewrite 缓冲区</p>
+</li>
+<li><p>innodb_flush_method = O_DIRECT  ：数据文件写入操作会通知操作系统不要缓存数据，也不要用预读</p>
+<p><strong>「innodb_flush_method控制innodb数据文件及redo log的打开、 刷写模式」</strong>。</p>
+</li>
+</ul>
+<h3 id="3-4-重做日志（Redo-Log）"><a href="#3-4-重做日志（Redo-Log）" class="headerlink" title="3.4 重做日志（Redo Log）"></a>3.4 重做日志（Redo Log）</h3><ul>
+<li><strong>「重做日志是一种基于磁盘的数据结构，用于在崩溃恢复期间修正不完整事务写入的数据」</strong>。</li>
+<li>MySQL以循环方式写入重做日志文件，记录InnoDB中所有对Buffer Pool修改的日志。</li>
+</ul>
+<blockquote>
+<p>当出现实例故障，导致数据未能更新到数据文件，则数据库重启时须redo，重新把数据更新到数据文件。读写事务在执行的过程中，都会不断的产生redo log。默认情况下，重做日志在磁盘上由两个名为ib_logfile0和ib_logfile1的文件物理表示。</p>
+</blockquote>
+<h3 id="3-5-撤销日志（Undo-Logs）"><a href="#3-5-撤销日志（Undo-Logs）" class="headerlink" title="3.5 撤销日志（Undo Logs）"></a>3.5 撤销日志（Undo Logs）</h3><p><strong>「撤消日志是在事务开始之前保存的被修改数据的备份，用于回滚事务」</strong>。</p>
+<p>撤消日志属于逻辑日志，根据每行记录进行记录。</p>
+<p>撤消日志存在于系统表空间、撤消表空间和临时表空间中。</p>
+</div><div class="article-licensing box"><div class="licensing-title"><p>MySQL四：InnoDB的存储结构</p><p><a href="http://ityouknow.cn/2021/08/06/MySQL%E5%9B%9B%EF%BC%9AInnoDB%E7%9A%84%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84/">http://ityouknow.cn/2021/08/06/MySQL%E5%9B%9B%EF%BC%9AInnoDB%E7%9A%84%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>yunlongn</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2021-08-06</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-12-19</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icon" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a><a class="icon" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a><a class="icon" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/Mysql/">Mysql</a></div><div class="bdsharebuttonbox"><a class="bds_more" href="#" data-cmd="more"></a><a class="bds_qzone" href="#" data-cmd="qzone" title="分享到QQ空间"></a><a class="bds_tsina" href="#" data-cmd="tsina" title="分享到新浪微博"></a><a class="bds_tqq" href="#" data-cmd="tqq" title="分享到腾讯微博"></a><a class="bds_renren" href="#" data-cmd="renren" title="分享到人人网"></a><a class="bds_weixin" href="#" data-cmd="weixin" title="分享到微信"></a></div><script>window._bd_share_config = { "common": { "bdSnsKey": {}, "bdText": "", "bdMini": "2", "bdPic": "", "bdStyle": "0", "bdSize": "16" }, "share": {} }; with (document) 0[(getElementsByTagName('head')[0] || body).appendChild(createElement('script')).src = 'http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion=' + ~(-new Date() / 36e5)];</script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/" alt="支付宝"></span></a><a class="button donate" href="/" target="_blank" rel="noopener" data-type="buymeacoffee"><span class="icon is-small"><i class="fas fa-coffee"></i></span><span>送我杯咖啡</span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/2021/08/06/MySQL%E4%BA%94%EF%BC%9AInnoDB%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B/"><i class="level-item fas fa-chevron-left"></i><span class="level-item">MySQL五：InnoDB线程模型</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2021/08/06/MySQL%E4%B8%89%EF%BC%9A%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/"><span class="level-item">MySQL三：存储引擎</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div id="comment-container"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.css"><script src="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script><script>var gitalk = new Gitalk({
+            id: "b2832549b57371bbcbb9ed52054002f0",
+            repo: "yunlongn.github.io",
+            owner: "yunlongn",
+            clientID: "fb8ffef00dff08ccb06c",
+            clientSecret: "935a05558f847f4321d3c64b4c0c2498697a2bda",
+            admin: "yunlongn",
+            createIssueManually: false,
+            distractionFreeMode: false,
+            perPage: 10,
+            pagerDirection: "last",
+            
+            
+            enableHotKey: true,
+            
+        })
+        gitalk.render('comment-container')</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar" src="/img/avatar.png" alt="云扬四海"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">云扬四海</p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">77</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">24</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">29</p></a></div></div></nav><div class="level"><a class="level-item button is-primary is-rounded" href="http://github.com/yunlongn" target="_blank" rel="noopener">关注我</a></div><div class="level is-mobile"><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Github" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="cnblogs" href="https://www.cnblogs.com/rolandlee/"><i class="fas fa-book"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="RSS" href="/atom.xml"><i class="fas fa-rss"></i></a></div></div></div><!--!--><div class="card widget" data-type="tagscloud" style="transition: opacity 0.3s ease-out 0s, transform 0.3s ease-out 0s; opacity: 1; transform-origin: center top;"><div class="card-content" id="tags"><h3 class="menu-label">标签云</h3><a href="/tags/JVM/" style="color:rgb(138,118,86);font-size:22px">JVM<span class="tag-cloud-count">(1) </span></a><a href="/tags/Java/" style="color:rgb(171,114,120);font-size:18px">Java<span class="tag-cloud-count">(5) </span></a><a href="/tags/Mysql/" style="color:rgb(142,146,93);font-size:21px">Mysql<span class="tag-cloud-count">(18) </span></a><a href="/tags/Netty/" style="color:rgb(172,143,95);font-size:16px">Netty<span class="tag-cloud-count">(1) </span></a><a href="/tags/Nginx/" style="color:rgb(193,163,152);font-size:17px">Nginx<span class="tag-cloud-count">(1) </span></a><a href="/tags/SpringBoot/" style="color:rgb(156,132,85);font-size:19px">SpringBoot<span class="tag-cloud-count">(2) </span></a><a href="/tags/heroku/" style="color:rgb(176,173,152);font-size:16px">heroku<span class="tag-cloud-count">(1) </span></a><a href="/tags/java/" style="color:rgb(184,169,80);font-size:21px">java<span class="tag-cloud-count">(1) </span></a><a href="/tags/java%E5%9F%BA%E7%A1%80/" style="color:rgb(135,102,94);font-size:16px">java基础<span class="tag-cloud-count">(2) </span></a><a href="/tags/java%E6%A0%B8%E5%BF%83/" style="color:rgb(145,164,114);font-size:15px">java核心<span class="tag-cloud-count">(1) </span></a><a href="/tags/linux/" style="color:rgb(149,133,123);font-size:20px">linux<span class="tag-cloud-count">(1) </span></a><a href="/tags/mq/" style="color:rgb(202,148,143);font-size:18px">mq<span class="tag-cloud-count">(1) </span></a><a href="/tags/mybatisPlus/" style="color:rgb(188,123,115);font-size:20px">mybatisPlus<span class="tag-cloud-count">(1) </span></a><a href="/tags/nio/" style="color:rgb(175,143,106);font-size:16px">nio<span class="tag-cloud-count">(1) </span></a><a href="/tags/servlet/" style="color:rgb(156,169,138);font-size:14px">servlet<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BA%8B%E5%8A%A1/" style="color:rgb(173,126,103);font-size:21px">事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BF%A1%E5%8F%B7%E9%87%8F/" style="color:rgb(192,109,100);font-size:13px">信号量<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" style="color:rgb(170,167,136);font-size:22px">分布式事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9B%BE%E7%89%87%E8%AF%86%E5%88%AB/" style="color:rgb(183,103,100);font-size:20px">图片识别<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9F%BA%E6%9C%AC%E5%91%BD%E4%BB%A4/" style="color:rgb(195,143,105);font-size:20px">基本命令<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/" style="color:rgb(169,150,149);font-size:18px">小程序<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B7%A5%E5%85%B7/" style="color:rgb(180,128,150);font-size:18px">工具<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%80%A7%E8%83%BD/" style="color:rgb(172,174,143);font-size:16px">性能<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%8A%80%E5%B7%A7/" style="color:rgb(148,126,93);font-size:13px">技巧<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E7%AD%BE%E5%90%8D/" style="color:rgb(186,119,122);font-size:13px">签名<span class="tag-cloud-count">(2) </span></a><a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="color:rgb(183,138,129);font-size:15px">设计模式<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/" style="color:rgb(189,104,137);font-size:21px">读书笔记<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%98%B2%E7%9B%97%E9%93%BE/" style="color:rgb(162,141,90);font-size:20px">防盗链<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="color:rgb(173,130,148);font-size:16px">面试<span class="tag-cloud-count">(1) </span></a></div></div><div class="card widget" data-type="links"><div class="card-content"><div class="menu"><h3 class="menu-label">链接</h3><ul class="menu-list"><li><a class="level is-mobile" href="http://www.ityouknow.com" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">纯洁的微笑</span></span><span class="level-right"><span class="level-item tag">www.ityouknow.com</span></span></a></li><li><a class="level is-mobile" href="https://blog.52itstyle.vip/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">柒&#039;s</span></span><span class="level-right"><span class="level-item tag">blog.52itstyle.vip</span></span></a></li><li><a class="level is-mobile" href="https://www.wdk.pw/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">王登科</span></span><span class="level-right"><span class="level-item tag">www.wdk.pw</span></span></a></li></ul></div></div></div></div><!--!--></div></div></section><embed src="/img/footer.svg" id="galinv" type="image/svg+xml"><footer class="footer"><div class="footer-image"><img src="/img/o_cnblogs_footer.png" width="60%"></div><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/">云扬四海</a><p class="is-size-7"><span>&copy; 2025 yunlongn</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/yunlongn"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" async></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>

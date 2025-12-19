@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>MySQL(八)：读懂MVCC多版本并发控制 - 云扬四海</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="云扬四海"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="云扬四海"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta description="mysql在并发的情况下，会引起脏读，幻读，不可重复读等一系列的问题，为解决这些问题，引入了mvcc的机制。本文就详细看看mvcc是怎么解决脏读，幻读等问题的。 1、 数据库事务1.1 事务事务是操作数据库的最小单元，将【多个任务作为单个逻辑工作单元】执行的一系列数据库操作，他们作为一个整体一起向数据库提交，要么都执行、要么都不执行。"><meta property="og:type" content="blog"><meta property="og:title" content="MySQL(八)：读懂MVCC多版本并发控制"><meta property="og:url" content="http://ityouknow.cn/2021/08/06/MySQL%E5%85%AB%EF%BC%9A%E8%AF%BB%E6%87%82MVCC%E5%A4%9A%E7%89%88%E6%9C%AC%E5%B9%B6%E5%8F%91%E6%8E%A7%E5%88%B6/"><meta property="og:site_name" content="云扬四海"><meta property="og:description" content="mysql在并发的情况下，会引起脏读，幻读，不可重复读等一系列的问题，为解决这些问题，引入了mvcc的机制。本文就详细看看mvcc是怎么解决脏读，幻读等问题的。 1、 数据库事务1.1 事务事务是操作数据库的最小单元，将【多个任务作为单个逻辑工作单元】执行的一系列数据库操作，他们作为一个整体一起向数据库提交，要么都执行、要么都不执行。"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127996.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127029.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127038.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127017.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127069.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127042.png"><meta property="og:image" content="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127345.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127351.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127017.png"><meta property="og:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127382.png"><meta property="article:published_time" content="2021-08-06T08:08:00.000Z"><meta property="article:modified_time" content="2025-12-19T06:50:33.435Z"><meta property="article:author" content="yunlongn"><meta property="article:tag" content="Mysql"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127996.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://ityouknow.cn/2021/08/06/MySQL%E5%85%AB%EF%BC%9A%E8%AF%BB%E6%87%82MVCC%E5%A4%9A%E7%89%88%E6%9C%AC%E5%B9%B6%E5%8F%91%E6%8E%A7%E5%88%B6/"},"headline":"云扬四海","image":["https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127996.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127029.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127038.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127017.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127069.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127042.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127345.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127351.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127017.png","https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127382.png"],"datePublished":"2021-08-06T08:08:00.000Z","dateModified":"2025-12-19T06:50:33.435Z","author":{"@type":"Person","name":"yunlongn"},"description":"mysql在并发的情况下，会引起脏读，幻读，不可重复读等一系列的问题，为解决这些问题，引入了mvcc的机制。本文就详细看看mvcc是怎么解决脏读，幻读等问题的。 1、 数据库事务1.1 事务事务是操作数据库的最小单元，将【多个任务作为单个逻辑工作单元】执行的一系列数据库操作，他们作为一个整体一起向数据库提交，要么都执行、要么都不执行。"}</script><link rel="canonical" href="http://ityouknow.cn/2021/08/06/MySQL%E5%85%AB%EF%BC%9A%E8%AF%BB%E6%87%82MVCC%E5%A4%9A%E7%89%88%E6%9C%AC%E5%B9%B6%E5%8F%91%E6%8E%A7%E5%88%B6/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.8.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" defer></script><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css"><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script><!--!--><!--!--><meta name="generator" content="Hexo 5.4.2"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/">云扬四海</a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">首页</a><a class="navbar-item" href="/archives">列表</a><a class="navbar-item" href="/categories">类别</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a><a class="navbar-item" href="/yun/fireworks/index.html">fireworks</a><a class="navbar-item" href="/yun/Photo_Wall3D.html">photoWall3D</a><a class="navbar-item" href="/yun/sheep.html">sheep</a></div><div class="navbar-end"><a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-9-tablet is-9-desktop is-9-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2021-08-06T08:08:00.000Z" title="2021-08-06T08:08:00.000Z">2021-08-06</time>发表</span><span class="level-item"><time dateTime="2025-12-19T06:50:33.435Z" title="2025-12-19T06:50:33.435Z">2025-12-19</time>更新</span><span class="level-item"> yunlongn </span><span class="level-item"><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a><span> / </span><a class="link-muted" href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Mysql/">Mysql</a></span><span class="level-item">1 小时读完 (大约8053个字)</span><span class="level-item" id="busuanzi_container_page_pv"><span id="busuanzi_value_page_pv">0</span>次访问</span></div></div><h1 class="title is-3 is-size-4-mobile">MySQL(八)：读懂MVCC多版本并发控制</h1><div class="content"><p>mysql在并发的情况下，会引起脏读，幻读，不可重复读等一系列的问题，为解决这些问题，引入了mvcc的机制。本文就详细看看mvcc是怎么解决脏读，幻读等问题的。</p>
+<h2 id="1、-数据库事务"><a href="#1、-数据库事务" class="headerlink" title="1、 数据库事务"></a>1、 数据库事务</h2><h3 id="1-1-事务"><a href="#1-1-事务" class="headerlink" title="1.1 事务"></a>1.1 事务</h3><p><strong>事务是操作数据库的最小单元，将【多个任务作为单个逻辑工作单元】执行的一系列数据库操作，他们作为一个整体一起向数据库提交，要么都执行、要么都不执行。</strong></p>
+<span id="more"></span>
+<blockquote>
+<p>大白话解释：</p>
+<p>事务就是当要完成一件事件，这件事又包含多个任务的时候，只有当所有的任务都执行成功，则认为这个事情是成功；只要有其中一个任务没有执行成功，则认为这件事执行失败，其他的执行成功的任务也要回滚到未执行的状态。</p>
+</blockquote>
+<ul>
+<li><strong>开启事务</strong>【开始记录一个事情中的多个任务】</li>
+<li><strong>执行事务</strong>【正常情况下，一条语句就是一个任务】</li>
+<li><strong>提交事务</strong>【成功】| <strong>回滚事务</strong>【失败】</li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127996.png" alt="图片"></p>
+<p>事务的作用：<strong>保证数据的最终一致性</strong>。</p>
+<h3 id="1-2-事务四大特性"><a href="#1-2-事务四大特性" class="headerlink" title="1.2 事务四大特性"></a>1.2 事务四大特性</h3><p><strong>事务四大特性即ACID：原子性（Atomicity）、一致性（Consistency）、隔离性（Isolation）、持久性（Durability）</strong>。</p>
+<ul>
+<li><p><strong>原子性（Atomicity）</strong></p>
+<p>事务是操作数据库的最小单元，作为一个整体被执行，包含一个事务中的所有操作要么全部都执行，要么全部失败回滚。</p>
+</li>
+<li><p><strong>一致性（Consistency）</strong></p>
+<p>事务必须使数据库从一个一致性状态转换到另一个一致性状态，即在事务开始之前和事务结束以后，数据不会被破坏，保持一致性。</p>
+<blockquote>
+<p>假如A账户给B账户转100块钱，不管事务是否成功，A账户给B账户的总金额是不变的。</p>
+</blockquote>
+</li>
+<li><p><strong>隔离性（Isolation）</strong></p>
+<p>当多个事务并发访问数据库时，一个事务不应该被其他事务干扰，多个并发事务之间是相互隔离的。</p>
+</li>
+<li><p><strong>持久性（Durability）</strong></p>
+<p>事务一旦完成后被提交，该事务对数据库所作的操作更改，将持久地保存在数据库之中。</p>
+</li>
+</ul>
+<h3 id="1-3-并发下的事务问题"><a href="#1-3-并发下的事务问题" class="headerlink" title="1.3 并发下的事务问题"></a>1.3 并发下的事务问题</h3><p>虽然事务能保持数据最终一致性，但是在并发下执行事务，发会引起<strong>脏读、不可重复读、幻读</strong>等问题。</p>
+<ul>
+<li><p><strong>脏读【读取未提交数据】</strong></p>
+<p><strong>如果一个事务读取到了另一个未提交事务修改过的数据，称发生了脏读</strong>。</p>
+<p>一般事务的脏读都是拿转账的案例说明，这里也转账和取款为案例：</p>
+<table>
+<thead>
+<tr>
+<th align="left">时间</th>
+<th align="left">事务A：转账</th>
+<th align="left">事务B:取款</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">1</td>
+<td align="left"></td>
+<td align="left">开始事务</td>
+</tr>
+<tr>
+<td align="left">2</td>
+<td align="left">开始事务</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">3</td>
+<td align="left"></td>
+<td align="left">查询账户余额为10000元</td>
+</tr>
+<tr>
+<td align="left">4</td>
+<td align="left"></td>
+<td align="left">执行取款操作，取款3000元，余额更改为7000元</td>
+</tr>
+<tr>
+<td align="left">5</td>
+<td align="left">查询账户余额为7000元（产生脏读）</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">6</td>
+<td align="left"></td>
+<td align="left">取款失败，回滚事务，余额还原为10000元</td>
+</tr>
+<tr>
+<td align="left">7</td>
+<td align="left">转入5000元，余额被更改为12000元（脏读的7000+5000）</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">8</td>
+<td align="left">提交事务</td>
+<td align="left"></td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>从上述执行过程的结果，最后账户余额为12000元，但是实际上B取款失败，余额为10000，加上A转入的5000元，账户最终的余额应该为15000元，平白无故少了3000元，这就是脏读。银行肯定是不允许这种事情发生的，不然就没人敢在银行存钱了……</p>
+</blockquote>
+</li>
+<li><p><strong>不可重复读【前后多次读取，数据内容不一致】</strong></p>
+<p><strong>同一个事务内，前后多次读取，读取到的数据内容不一致，称之为不可重复读</strong>。</p>
+<p>还是以转账的案例：</p>
+<table>
+<thead>
+<tr>
+<th align="left">时间</th>
+<th align="left">事务A：查询</th>
+<th align="left">事务B:取款</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">1</td>
+<td align="left">开始事务</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">2</td>
+<td align="left">第一次查询，账户的余额为10000元</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">3</td>
+<td align="left"></td>
+<td align="left">开始事务</td>
+</tr>
+<tr>
+<td align="left">4</td>
+<td align="left"></td>
+<td align="left">执行取款操作，取款3000元，余额更改为7000元</td>
+</tr>
+<tr>
+<td align="left">5</td>
+<td align="left"></td>
+<td align="left">提交事务</td>
+</tr>
+<tr>
+<td align="left">6</td>
+<td align="left">第二次查询，账户的余额为7000元</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">7</td>
+<td align="left">提交事务</td>
+<td align="left"></td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>从上述案例描述中可以看出，事务A执行的过程中，事务B修改了账户余额，导致事务A中的两次查询结果不一致，这就是不可重复读，对于事务A而言莫名其妙的余额变少了，那肯定不干……</p>
+</blockquote>
+</li>
+<li><p><strong>幻读【前后多次读取，数据总量不一致】</strong></p>
+<p><strong>事务A执行多次读取操作过程中，由于在事务提交之前，事务B（insert/delete/update）写入了一些符合事务A的查询条件的记录，导致事务A在之后的查询结果与之前的结果不一致，这种情况称之为幻读</strong>。</p>
+<p>以student表中的数据为例：</p>
+</li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<p>依次执行下面这两个语句</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">#查询语句</span><br><span class="line">select * from student  where id &gt; 2;</span><br><span class="line">#写入语句</span><br><span class="line">insert into student(id,c_id,name,sex,score) value(6,2,&#39;吕布&#39;,&#39;男&#39;,89);</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th align="left">时间</th>
+<th align="left">事务A：读取</th>
+<th align="left">事务B:写入</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">1</td>
+<td align="left">开始事务</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">2</td>
+<td align="left">第一次执行查询语句，结果为3条数据结果</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">3</td>
+<td align="left"></td>
+<td align="left">开始事务</td>
+</tr>
+<tr>
+<td align="left">4</td>
+<td align="left"></td>
+<td align="left">执行写入语句，插入一条ID为6的数据</td>
+</tr>
+<tr>
+<td align="left">5</td>
+<td align="left"></td>
+<td align="left">提交事务</td>
+</tr>
+<tr>
+<td align="left">6</td>
+<td align="left">第二次执行查询语句，结果为4条数据结果</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">7</td>
+<td align="left">提交事务</td>
+<td align="left"></td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>从上述案例描述中可以看出，事务A在前后两次执行的过程中，由于事务B插入了满足查询语句的数据，导致事务A两次查询结果的总数不一样，这就是幻读。</p>
+</blockquote>
+<ul>
+<li><p><strong>总结</strong></p>
+<p>一般我们再理解幻读与不可重复读的时候，容易混淆，其实只需要分清一点就可以，</p>
+<p><strong>一般而言：幻读是指查询数据的【条数总量】不一致，不可重复读是指查询数据的数据内容不一致</strong>。</p>
+</li>
+</ul>
+<h3 id="1-4-事务的四大隔离级别"><a href="#1-4-事务的四大隔离级别" class="headerlink" title="1.4 事务的四大隔离级别"></a>1.4 事务的四大隔离级别</h3><p>数据库设计了四种隔离级别：<strong>串行化(Serializable)、可重复读(Repeatable read)、读已提交(Read committed)、读未提交(Read uncommitted)**，用来解决并发事务存在的</strong>脏读、不可重复读、幻读**等问题。</p>
+<ul>
+<li><p><strong>读未提交(Read uncommitted)</strong></p>
+<p><strong>在读未提交的隔离级别下，所有事务能够读取【其他事务未提交】的数据。</strong></p>
+<p>读取其他事务未提交的数据，会造成脏读。因此在该种隔离级别下，不能解决脏读、不可重复读和幻读。</p>
+</li>
+<li><p><strong>读已提交(Read committed)</strong></p>
+<p><strong>在读已提交的隔离级别下，所有事务只能读取【其他事务已经提交】的数据</strong>。Oracle和SQL Server的默认的隔离级别。</p>
+<p>读已提交能够解决脏读的现象，但是还是会有<strong>不可重复读、幻读</strong>的问题</p>
+<blockquote>
+<p>读已提交会有一个事务的前后多次的查询中却返回了不同内容的数据的现象。</p>
+</blockquote>
+</li>
+<li><p><strong>可重复读(Repeatable read)</strong></p>
+<p><strong>在可重复读的隔离级别下，限制了读取数据的时候，不可以进行修改，所有事务前后多次的读取到的数据内容是不变的</strong>。mysql的默认事务隔离级别</p>
+<p>这种隔离级别解决了<strong>重复读</strong>的问题，但是读取范围数据的时候，是可以add数据的，所以还是会造成某个事务前后多次读取到的数据总量不一致的现象，从而产生幻读。</p>
+<blockquote>
+<p>针对以上问题，一般我们也可以使用<strong>间隙锁</strong>和<strong>临键锁</strong>来解决幻读问题，这个以后再讲</p>
+</blockquote>
+</li>
+<li><p><strong>串行化(Serializable)</strong></p>
+<p><strong>事务最高的隔离级别，在串行化的隔离级别下，所有的事务顺序执行，不存在任何冲突，可以避免脏读、不可重复读与幻读所有并发问题</strong>。</p>
+<p>但是串行化的隔离级别，会导致大量的操作超时和锁竞争，从而大大降低数据库的性能，一般不使用这样事务隔离级别。</p>
+</li>
+</ul>
+<p><strong>四种隔离级别存在的并发问题如下：</strong></p>
+<p>【 ×】表示未解决，【√】表示已解决</p>
+<table>
+<thead>
+<tr>
+<th align="left">隔离级别</th>
+<th align="left">脏读</th>
+<th align="left">不可重复读</th>
+<th align="left">幻读</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">读未提交(Read uncommitted)</td>
+<td align="left">×</td>
+<td align="left">×</td>
+<td align="left">×</td>
+</tr>
+<tr>
+<td align="left">读已提交(Read committed)</td>
+<td align="left">√</td>
+<td align="left">×</td>
+<td align="left">×</td>
+</tr>
+<tr>
+<td align="left">可重复读(Repeatable read)</td>
+<td align="left">√</td>
+<td align="left">√</td>
+<td align="left">×</td>
+</tr>
+<tr>
+<td align="left">串行化(Serializable)</td>
+<td align="left">√</td>
+<td align="left">√</td>
+<td align="left">√</td>
+</tr>
+</tbody></table>
+<h2 id="2、MVCC基础概念"><a href="#2、MVCC基础概念" class="headerlink" title="2、MVCC基础概念"></a>2、MVCC基础概念</h2><blockquote>
+<p>数据库通过<strong>加锁</strong>，可以实现事务的隔离性，<strong>串行化隔离级别就是加锁实现的</strong>，但是加锁会<strong>降低数据库性能</strong>。</p>
+<p>因此，数据库引入了<strong>MVCC多版本并发控制</strong>，在读取数据不用加锁的情况下，实现读取数据的同时可以修改数据，修改数据时同时可以读取数据。</p>
+</blockquote>
+<h3 id="2-1-什么是MVCC"><a href="#2-1-什么是MVCC" class="headerlink" title="2.1 什么是MVCC"></a>2.1 什么是MVCC</h3><p><strong>MVCC(Mutil-Version Concurrency Control)，多版本并发控制。是一种并发控制的方法，一般在数据库管理系统中，实现对数据库的并发访问。用于支持读已提交(RC）和可重复读(RR）隔离级别的实现</strong>。</p>
+<blockquote>
+<p><strong>MVCC</strong>在<strong>MySQL InnoDB</strong>引擎中的实现主要是为了在处理读-写冲突时提高数据库并发性能，记录读已提交和可重复读这两种隔离级别下事务操作版本连的过程。</p>
+</blockquote>
+<ul>
+<li><p><strong>数据库并发场景一般有三种：</strong></p>
+</li>
+<li><ul>
+<li><strong>读-读</strong>：不存在任何问题，不需要并发控制</li>
+<li><strong>读-写</strong>：有线程安全问题，可能会造成事务隔离性问题，可能会有脏读，幻读，不可重复读</li>
+<li><strong>写-写</strong>：有线程安全问题，可能会存在更新丢失问题。</li>
+</ul>
+</li>
+<li><p>MVCC主要是用来解决【<strong>读-写</strong>】冲突的<strong>无锁并发控制</strong>，可以解决以下问题：</p>
+</li>
+<li><ul>
+<li><strong>在并发读写数据时，可以做到在读操作时不用阻塞写操作，写操作不用阻塞读操作，提高数据库并发读写的性能</strong>。</li>
+<li><strong>可以解决脏读，幻读，不可重复读等事务隔离问题，但不能解决【写-写】引起的更新丢失问题</strong>。</li>
+</ul>
+</li>
+<li><p><strong>MVCC与锁的组合</strong>：</p>
+<p><strong>一般数据库中都会采用以上MVCC与锁的两种组合来解决并发场景的问题，以此最大限度的提高数据库性能</strong>。</p>
+</li>
+<li><ul>
+<li><strong>MVCC + 悲观锁</strong>MVCC解决读-写冲突，悲观锁解决写-写冲突。</li>
+<li><strong>MVCC + 乐观锁</strong>MVCC解决读-写冲突，乐观锁解决写-写冲突。</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>通过上述描述，MVCC的作用可以概括为就是为了解决【读写冲突】，提高数据库性能的，而MVCC的实现又依赖于六个概念：【隐式字段】【undo日志】【版本链】【快照读和当前读】【读视图】。</p>
+</blockquote>
+<h3 id="2-2-隐式字段"><a href="#2-2-隐式字段" class="headerlink" title="2.2 隐式字段"></a>2.2 隐式字段</h3><p><strong>在InnoDB存储引擎，针对每行记录都有固定的两个隐藏列【DB_TRX_ID】【DB_ROLL_PTR】以及一个可能存在的隐藏列【DB_ROW_ID】</strong>。</p>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<table>
+<thead>
+<tr>
+<th align="left">隐式字段</th>
+<th align="left">描述</th>
+<th align="left">是否必须存在</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">DB_TRX_ID</td>
+<td align="left">事物Id，也叫事物版本号，占用6byte的标识，<strong>事务开启之前，从数据库获得一个自增长的事务ID，用其判断事务的执行顺序</strong></td>
+<td align="left">是</td>
+</tr>
+<tr>
+<td align="left">DB_ROLL_PTR</td>
+<td align="left">占用7byte，<strong>回滚指针，指向这条记录的上一个版本的undo log记录，存储于回滚段（rollback segment）中</strong></td>
+<td align="left">是</td>
+</tr>
+<tr>
+<td align="left">DB_ROW_ID</td>
+<td align="left">隐含的自增ID（隐藏主键），如果表中没有主键和非NULL唯一键时，则会生成一个<strong>单调递增的行ID作为聚簇索引</strong></td>
+<td align="left">否</td>
+</tr>
+</tbody></table>
+<p>表中的数据会因此分为两种形式：</p>
+<ul>
+<li><strong>有主键或唯一非空字段</strong></li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li><strong>没有主键且没有唯一非空字段</strong></li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<h3 id="2-3-undo日志"><a href="#2-3-undo日志" class="headerlink" title="2.3 undo日志"></a>2.3 undo日志</h3><p><strong>一种用于撤销回退的日志，在事务开始之前，会先记录存放到 Undo 日志文件里，备份起来，当事务回滚时或者数据库崩溃时用于回滚事务</strong>。undo日志的详细介绍在之前的<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzIxMDU5OTU1Mw==&mid=2247485806&idx=1&sn=ed2de04421546b4187a8bbf9da821648&scene=21#wechat_redirect">《MySQL(七)：一文详解六大日志》</a>中有详细介绍。</p>
+<p><strong>undo日志的主要作用是事务回滚和实现MVCC快照读</strong>。</p>
+<p><strong>undo log日志分为两种</strong>：</p>
+<ul>
+<li><strong>insert undo log**</strong>代表事务在<code>insert</code>新记录时产生的<code>undo log</code>, 仅用于事务回滚，并且在事务提交后可以被立即丢弃**。</li>
+<li><strong>update undo log**</strong>事务在进行<code>update</code>或<code>delete</code>时产生的<code>undo log</code>; 不仅在事务回滚时需要，在实现MVCC快照读时也需要**；所以不能随便删除，只有在快速读或事务回滚不涉及该日志时，对应的日志才会被清理线程统一清除。</li>
+</ul>
+<p>MVCC实际上是使用的<code>update undo log</code> 实现的快照读。</p>
+<blockquote>
+<p><strong>InnoDB 并不会真正地去开辟空间存储多个版本的行记录，只是借助 undo log 记录每次写操作的反向操作。所以B+ 索引树上对应的记录只会有一个最新版本，InnoDB 可以根据 undo log 得到数据的历史版本，从而实现多版本控制。</strong></p>
+</blockquote>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127029.png" alt="图片"></p>
+<h3 id="2-4-版本链"><a href="#2-4-版本链" class="headerlink" title="2.4 版本链"></a>2.4 版本链</h3><blockquote>
+<p>一致性非锁定读是通过 <strong>MVCC</strong> 来实现的。但是MVCC 没有一个统一的实现标准，所以各个存储引擎的实现机制不尽相同。InnoDB 存储引擎中 MVCC 的实现是通过 <strong>undo log</strong> 来完成的</p>
+</blockquote>
+<p><strong>当事务对某一行数据进行改动时，会产生一条Undo日志，多个事务同时操作一条记录时，就会产生多个版本的Undo日志，这些日志通过回滚指针（DB_ROLL_PTR）连成一个链表，称为版本链</strong>。</p>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<blockquote>
+<p>只要有事务写入数据时，就会产生一条对应的 undo log，一条 undo log 对应这行数据的一个版本，当这行数据有多个版本时，就会有多条 undo log 日志，undo log 之间通过回滚指针（DB_ROLL_PTR）连接，这样就形成了一个 undo log 版本链。</p>
+</blockquote>
+<h3 id="2-5-快照读和当前读"><a href="#2-5-快照读和当前读" class="headerlink" title="2.5 快照读和当前读"></a>2.5 快照读和当前读</h3><ul>
+<li><p><strong>快照读【Consistent Read】</strong></p>
+<p><strong>也叫普通读，读取的是记录数据的可见版本，不加锁，不加锁的普通select语句都是快照读，即不加锁的非阻塞读</strong>。</p>
+<p><strong>快照读的执行方式是生成 ReadView，直接利用 MVCC 机制来进行读取，并不会对记录进行加锁</strong>。</p>
+<p>如下语句：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">select * from table;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>当前读</strong></p>
+<p><strong>也称锁定读【Locking Read】，读取的是记录数据的最新版本，并且需要先获取对应记录的锁</strong>。如下语句：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">SELECT * FROM student LOCK IN SHARE MODE;  # 共享锁</span><br><span class="line">SELECT * FROM student FOR UPDATE; # 排他锁</span><br><span class="line">INSERT INTO student values ...  # 排他锁</span><br><span class="line">DELETE FROM student WHERE ...  # 排他锁</span><br><span class="line">UPDATE student SET ...  # 排他锁</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h3 id="2-6-读视图【Read-View】"><a href="#2-6-读视图【Read-View】" class="headerlink" title="2.6 读视图【Read View】"></a>2.6 读视图【Read View】</h3><p><strong>Read View提供了某一时刻事务系统的快照，主要是用来做<code>可见性</code>判断, 里面保存了【对本事务不可见的其他活跃事务】</strong>。</p>
+<p><strong>当事务在开始执行的时候，会产生一个读视图（Read View），用来判断当前事务可见哪个版本的数据，即可见性判断</strong>。</p>
+<p><strong>实际上在innodb中，每个SQL语句执行前都会生成一个Read View</strong>。</p>
+<h4 id="2-6-1-读视图的四个属性"><a href="#2-6-1-读视图的四个属性" class="headerlink" title="2.6.1 读视图的四个属性"></a>2.6.1 读视图的四个属性</h4><p>MySQL<code>5.7</code>源码中对<code>Read View</code>定义了四个属性，如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">class ReadView &#123;</span><br><span class="line">	private:</span><br><span class="line">		&#x2F;** The read should not see any transaction with trx id &gt;&#x3D; this</span><br><span class="line">		value. In other words, this is the &quot;high water mark&quot;. *&#x2F;</span><br><span class="line">		trx_id_t	m_low_limit_id;</span><br><span class="line"></span><br><span class="line">		&#x2F;** The read should see all trx ids which are strictly</span><br><span class="line">		smaller (&lt;) than this value.  In other words, this is the</span><br><span class="line">		low water mark&quot;. *&#x2F;</span><br><span class="line">		trx_id_t	m_up_limit_id;</span><br><span class="line"></span><br><span class="line">		&#x2F;** trx id of creating transaction, set to TRX_ID_MAX for free</span><br><span class="line">		views. *&#x2F;</span><br><span class="line">		trx_id_t	m_creator_trx_id;</span><br><span class="line"></span><br><span class="line">		&#x2F;** Set of RW transactions that was active when this snapshot</span><br><span class="line">		was taken *&#x2F;</span><br><span class="line">		ids_t		m_ids;</span><br><span class="line"></span><br><span class="line">		&#x2F;** The view does not need to see the undo logs for transactions</span><br><span class="line">		whose transaction number is strictly smaller (&lt;) than this value:</span><br><span class="line">		they can be removed in purge if not needed by other views *&#x2F;</span><br><span class="line">		trx_id_t	m_low_limit_no;</span><br><span class="line"></span><br><span class="line">		&#x2F;** AC-NL-RO transaction view that has been &quot;closed&quot;. *&#x2F;</span><br><span class="line">		bool		m_closed;</span><br><span class="line"></span><br><span class="line">		typedef UT_LIST_NODE_T(ReadView) node_t;</span><br><span class="line"></span><br><span class="line">		&#x2F;** List of read views in trx_sys *&#x2F;</span><br><span class="line">		byte		pad1[64 - sizeof(node_t)];</span><br><span class="line">		node_t		m_view_list;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p><strong>creator_trx_id</strong></p>
+<p>创建当前read view的事务ID</p>
+</li>
+<li><p><strong>m_ids</strong></p>
+<p>当前系统中所有的活跃事务的 id，活跃事务指的是当前系统中开启了事务，但还没有提交的事务;</p>
+</li>
+<li><p><strong>m_low_limit_id</strong></p>
+<p>表示在生成ReadView时，当前系统中活跃的读写事务中最小的事务id，即m_ids中的最小值。</p>
+</li>
+<li><p><strong>m_up_limit_id</strong></p>
+<p>当前系统中事务的 id 值最大的那个事务 id 值再加 1，也就是系统中下一个要生成的事务 id。</p>
+</li>
+</ul>
+<p><strong>ReadView 会根据这 4 个属性，结合 undo log 版本链，来实现 MVCC 机制，决定一个事务能读取到数据那个版本</strong>。</p>
+<blockquote>
+<p>假设现在有事务 A 和事务 B 并发执行，事务 A 的事务 id 为 10，事务 B 的事务 id 为 20。</p>
+<p>事务A的ReadView ：m_ids=[10,20]，m_low_limit_id=10，m_up_limit_id=21，creator_trx_id=10。</p>
+<p>事务B的ReadView ：m_ids=[10,20]，m_low_limit_id=10，m_up_limit_id=21，creator_trx_id=20。</p>
+</blockquote>
+<h4 id="2-6-2-读视图可见性判断规则"><a href="#2-6-2-读视图可见性判断规则" class="headerlink" title="2.6.2 读视图可见性判断规则"></a>2.6.2 读视图可见性判断规则</h4><p>将Read View中的活跃事务Id按照大小放在坐标轴上表示的话，如下图：</p>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<p>当一个事务读取某条数据时，会<strong>通过DB_TRX_ID【Uodo日志的事务Id】在坐标轴上的位置</strong>来进行可见性规则判断，如下：</p>
+<ul>
+<li><p><strong>DB_TRX_ID &lt; m_low_limit_id</strong></p>
+<p>表示DB_TRX_ID对应这条数据【Undo日志】是在当前事务开启之前，其他的事务就已经将该条数据修改了并提交了事务(事务的 id 值是递增的)，所以当前事务【开启Read View的事务】能读取到。</p>
+</li>
+<li><p><strong>DB_TRX_ID &gt;= m_up_limit_id</strong></p>
+<p>表示在当前事务【creator_trx_id】开启以后，有新的事务开启，并且新的事务修改了这行数据的值并提交了事务，因为这是【creator_trx_id】后面的事务修改提交的数据，所以当前事务【creator_trx_id】是不能读取到的。</p>
+</li>
+<li><p><strong>m_low_limit_id =&lt; DB_TRX_ID &lt; m_up_limit_id</strong></p>
+</li>
+<li><ul>
+<li><strong>DB_TRX_ID  在 m_ids 数组中</strong></li>
+</ul>
+</li>
+<li><p>  表示DB_TRX_ID【写Undo日志的事务】 和当前事务【creator_trx_id】是在同一时刻开启的事务</p>
+</li>
+<li><ul>
+<li><ul>
+<li><strong>DB_TRX_ID  不等于creator_trx_id</strong></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<pre><code>  **DB_TRX_ID事务修改了数据的值，并提交了事务，所以当前事务【creator_trx_id】不能读取到。**
+
+
+
+- **DB_TRX_ID  等于creator_trx_id**</code></pre>
+<ul>
+<li><p>​      表明数据【Undo日志】 是自己生成的，因此是<strong>可见</strong>的</p>
+</li>
+<li><ul>
+<li><p><strong>DB_TRX_ID  不在 m_ids 数组中</strong></p>
+<p>表示的是在当前事务【creator_trx_id】开启之前，其他事务【DB_TRX_ID】将数据修改后就已经提交了事务，所以当前事务能读取到。</p>
+</li>
+</ul>
+</li>
+</ul>
+<h4 id="2-6-3-读视图可见性判断规则案例说明"><a href="#2-6-3-读视图可见性判断规则案例说明" class="headerlink" title="2.6.3 读视图可见性判断规则案例说明"></a>2.6.3 读视图可见性判断规则案例说明</h4><p>了解了读视图可见性判断规则，下面通过一个场景案例图解的方式来详细逐条验证上述规则。一般来说，我们的行数据结构都为一下模式：</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127038.png" alt="图片"></p>
+<p>假设有一个事物【DB_TRX_ID = 10】在表中插入了一条数据，则它的数据结构为为：</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127017.png" alt="图片"></p>
+<ul>
+<li><p>【第一步】：假设现在有事务 A【DB_TRX_ID = 20】 和事务 B 【DB_TRX_ID = 30】并发执行</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">#事物A：</span><br><span class="line">select name from user where id &#x3D; 1;</span><br><span class="line">#事物B：</span><br><span class="line">update user set name &#x3D; &#39;edwin&#39; where id &#x3D; 1;</span><br></pre></td></tr></table></figure>
+
+<p>事物开始后分别生成ReadView</p>
+</li>
+<li><ul>
+<li>事务A的ReadView ：m_ids=[20,30]，m_low_limit_id=20，m_up_limit_id=31，creator_trx_id=20。</li>
+<li>事务B的ReadView ：m_ids=[20,30]，m_low_limit_id=20，m_up_limit_id=31，creator_trx_id=30。</li>
+</ul>
+</li>
+<li><p>【第二步】：事物A开启事物之后通过版本链<strong>第一次</strong>读取数据，版本链中的DB_TRX_ID = 10，小于事物A的【DB_TRX_ID = 20】，说明DB_TRX_ID = 10这条数据是事物A开启之前就已经写入，并提交了事物，所以事物A可以读取到。</p>
+</li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li>【第三步】：事务 B 【DB_TRX_ID = 30】修改数据，将name修改为Edwin，修改后写入Undo Log日志，<strong>此时还没有提交事务B</strong>。示意图如下：</li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<ul>
+<li><p>【第四步】：事务A【DB_TRX_ID = 20】<strong>第二次</strong>去读取数据</p>
+<p><strong>在 undo log版本链中，数据最新版本的事务id为30，这个值处于事务A的 ReadView 里 m_low_limit_id 和 m_up_limit_id 并且存在于m_ids 数组中，表示这个版本的数据是和自己同一时刻启动的事务修改的，因此这个版本的数据，数据 A 读取不到</strong>。</p>
+</li>
+</ul>
+<p>此时需要沿着 undo log 的版本链向前找，接着会找到该行数据的上一个版本db_trx_id=10，由于db_trx_id=10小于 m_low_limit_id的值，因此事务 A 能读取到该版本的值，即事务 A 读取到的值是星之码。</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127069.png" alt="图片"></p>
+<ul>
+<li><p>【第五步】：现在事务 B 提交，此时系统中活跃的事务只有事物A，事物A<strong>第三次</strong>读取，读取到内容就有两种可能性：</p>
+<blockquote>
+<p>这里留一个问题一：造成这两种情况的原因是什么？</p>
+<p>我们留到本文第三节【不同隔离级别MVCC实现原理】中说明，继续案例</p>
+</blockquote>
+</li>
+<li><ul>
+<li><strong>读已提交（RC）隔离级别：读取到是事物B提交的Edwin</strong>。</li>
+<li><strong>可重复读（RR）隔离级别：读取到是原始数据提交的星河之码</strong>。</li>
+</ul>
+</li>
+<li><p>【第六步】：新的事物C【DB_TRX_ID = 40】修改数据，将name修改为彬</p>
+</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#事物C：</span><br><span class="line">update user set name &#x3D; &#39;彬&#39; where id &#x3D; 1;</span><br></pre></td></tr></table></figure>
+
+<p>执行脚本前生成的ReadView如下，执行脚本后，提交事物C。</p>
+<p><strong>事务C的ReadView ：m_ids=[20,40]，m_low_limit_id=20，m_up_limit_id=41，creator_trx_id=40</strong>。</p>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127042.png" alt="图片"></p>
+<ul>
+<li><p>【第七步】：事务 A【DB_TRX_ID = 20】<strong>第四次</strong>读取数据，</p>
+<p>此时由于事物A，由于事物A的m_up_limit_id=31，而日志中的DB_TRX_ID=40，根据可见性判断规则可以知到，事物A不能读取到DB_TRX_ID=40的记录，按照版本链的DB_POLL_PTR继续往上找，找到DB_TRX_ID=30的记录，虽然30在事物A的的m_ids=[20,30]，但是<strong>DB_TRX_ID=30不等于事物A的creator_trx_id=20</strong>，所以还是不能读取，继续往上找，最终读取到了DB_TRX_ID=10的记录，name=星河之码</p>
+</li>
+</ul>
+<p><img src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" alt="图片"></p>
+<blockquote>
+<p>实际上，这里事务A在不同场景下也是可以读取到DB_TRX_ID=40得数据的。</p>
+<p>这里也留一个问题二：在什么场景下能够读取到DB_TRX_ID=40得数据name=彬呢？</p>
+<p>我们留到本文第三节【不同隔离级别MVCC实现原理】中说明，继续案例</p>
+</blockquote>
+<ul>
+<li><p>【第八步】：事务 A【DB_TRX_ID = 20】开始修改数据，将name 修改为 ‘法外狂徒张三’</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#事物A：</span><br><span class="line">update user set name &#x3D; &#39;法外狂徒张三&#39; where id &#x3D; 1;</span><br></pre></td></tr></table></figure>
+
+<p>此时事务A还没有提交，但是已经写入了Undo 日志，新的版本链如下</p>
+</li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127345.png" alt="图片"></p>
+<ul>
+<li><p>【第九步】：事务 A<strong>第五次</strong>读取数据</p>
+<p>由于Undo日志中的最新数据DB_TRX_ID=20等于事物A的creator_trx_id=20，说明是自己修改的数据，可以查到，name=法外狂徒张三</p>
+</li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127351.png" alt="图片"></p>
+<p>通过以上九个步骤图解的方式，对读视图可见性判断规则做了分析，通过ReadView 和 undo log分析了MVCC 的实现原理，接下来结合事务的隔离级别，看看MVCC是怎么读取数据的。</p>
+<h2 id="3、不同隔离级别MVCC实现原理"><a href="#3、不同隔离级别MVCC实现原理" class="headerlink" title="3、不同隔离级别MVCC实现原理"></a>3、不同隔离级别MVCC实现原理</h2><h3 id="3-1-MVCC实现原理"><a href="#3-1-MVCC实现原理" class="headerlink" title="3.1 MVCC实现原理"></a>3.1 MVCC实现原理</h3><p>通过上述对【Read View】的分析可以总结出：<strong>InnoDB 实现MVCC是通过<code> Read View与Undo Log</code> 实现的，Undo Log 保存了历史快照，形成版版本链，Read View可见性规则判断当前版本的数据是否可见</strong>。</p>
+<p><strong>InnnoDB执行查询语句的具体步骤为</strong>：</p>
+<ul>
+<li>执行语句之前获取查询事务自己的事务Id，即事务版本号。</li>
+<li>通过事务id获取Read View</li>
+<li>查询存储的数据，将其事务Id与Read View中的事务版本号进行比较</li>
+<li>不符合Read View的可见性规则，则读取Undo log中历史快照数据</li>
+<li>找到当前事务能够读取的数据返回</li>
+</ul>
+<p><strong>而在实际的使用过程中，Read View在不同的隔离级别下是得工作方式是不一样</strong>。</p>
+<h3 id="3-2-读已提交（RC）MVCC实现原理"><a href="#3-2-读已提交（RC）MVCC实现原理" class="headerlink" title="3.2 读已提交（RC）MVCC实现原理"></a>3.2 读已提交（RC）MVCC实现原理</h3><p><strong>在读已提交(Read committed)的隔离级别下实现MVCC，同一个事务里面，【每一次查询都会产生一个新的Read View副本】，这样可能造成同一个事务里前后读取数据可能不一致的问题（不可重复读并发问题）</strong>。</p>
+<p>还是按照上述案例来说明一下：</p>
+<ul>
+<li>【第一步】：准备一条原始数据</li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127017.png" alt="图片"></p>
+<ul>
+<li><p>【第二步】：假设现在有事务 A【DB_TRX_ID = 20】 和事务 B 【DB_TRX_ID = 30】并发执行</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">#事物A：</span><br><span class="line">select name from user where id &#x3D; 1;</span><br><span class="line">#事物B：</span><br><span class="line">update user set name &#x3D; &#39;edwin&#39; where id &#x3D; 1;</span><br></pre></td></tr></table></figure>
+
+<p>执行过程为</p>
+<table>
+<thead>
+<tr>
+<th align="left">时间</th>
+<th align="left">事务A</th>
+<th align="left">事务B</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">1</td>
+<td align="left">开始事务</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">2</td>
+<td align="left">第一次查询：select name from user where id = 1;</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">3</td>
+<td align="left"></td>
+<td align="left">开始事务</td>
+</tr>
+<tr>
+<td align="left">4</td>
+<td align="left"></td>
+<td align="left">执行修改：update user set name = ‘edwin’ where id = 1;</td>
+</tr>
+<tr>
+<td align="left">5</td>
+<td align="left"></td>
+<td align="left">提交事务</td>
+</tr>
+<tr>
+<td align="left">6</td>
+<td align="left">第二次查询：select name from user where id = 1;</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">7</td>
+<td align="left">提交事务</td>
+<td align="left"></td>
+</tr>
+</tbody></table>
+<p>版本链为：</p>
+</li>
+</ul>
+<p><img src="https://images-roland.oss-cn-shenzhen.aliyuncs.com/blog/mysql/202208061127382.png" alt="图片"></p>
+<p><strong>案例结果分析</strong>：</p>
+<p>上述案例在<strong>在读已提交(Read committed)的隔离级别下实现，同一个事务里面，【每一次查询都会产生一个新的Read View副本】</strong>。所以第二步实际上产生了三个Read View</p>
+<table>
+<thead>
+<tr>
+<th align="left"></th>
+<th align="left">m_ids</th>
+<th align="left">m_low_limit_id</th>
+<th align="left">m_up_limit_id</th>
+<th align="left">creator_trx_id</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">事务A：第一次查询Read View</td>
+<td align="left">[20,30]</td>
+<td align="left">20</td>
+<td align="left">31</td>
+<td align="left">20</td>
+</tr>
+<tr>
+<td align="left">事务B：Read View</td>
+<td align="left">[20,30]</td>
+<td align="left">20</td>
+<td align="left">31</td>
+<td align="left">30</td>
+</tr>
+<tr>
+<td align="left">事务A：第二次查询Read View</td>
+<td align="left">[20]</td>
+<td align="left">20</td>
+<td align="left">31</td>
+<td align="left">20</td>
+</tr>
+</tbody></table>
+<p>通过可见性判断：</p>
+<ul>
+<li><p><strong>事务A第一次查询时</strong></p>
+<p>日志事务Id【DB_TRX_ID = 10】 &lt; 最小活跃事务ID【m_low_limit_id=20】，因此可以读取到DB_TRX_ID = 10这条版本链中的数据。即name = 星河之码。</p>
+</li>
+<li><p><strong>事务A第二次查询时</strong></p>
+<p>此时事务B已经提交，版本链中最新版本为DB_TRX_ID = 30，而可见性规则中虽然满足</p>
+<p>【m_low_limit_id=20】=&lt;【DB_TRX_ID=30】&lt;【m_up_limit_id=20】但是【DB_TRX_ID=30】不在m_ids集合[20]中，因此事务A的第二次查询可以读取【DB_TRX_ID=30】的数据，即name = edwin。</p>
+</li>
+</ul>
+<p><strong>案例总结</strong>：</p>
+<p>通过上述案例说明，<strong>同一个事务A的两个相同查询，第一次结果为星河之码，第二次结果为edwin，因此在读已提交（RC）隔离级别下，存在不可重复读并发问题</strong>。</p>
+<blockquote>
+<p>此处也就解答了2.6.3中【第五步】的问题一中的第一种情况：读已提交（RC）隔离级别：读取到是事物B提交的Edwin。同样也解答了【第七步】的问题二，为什么能读取DB_TRX_ID=40得数据name=彬。</p>
+</blockquote>
+<h3 id="3-3-可重复读（RR）MVCC实现原理"><a href="#3-3-可重复读（RR）MVCC实现原理" class="headerlink" title="3.3 可重复读（RR）MVCC实现原理"></a>3.3 可重复读（RR）MVCC实现原理</h3><p><strong>在可重复读(Repeatable read)的隔离级别下实现MVCC，【同一个事务里面，多次查询，都只会产生一个共用Read View】，以此不可重复读并发问题</strong>。</p>
+<p>案例与3.2一样，这里就不重复赘述，可以再看一遍3.2的【第一步】【第二步】，直接进行案例分析</p>
+<p><strong>案例结果分析</strong>：</p>
+<p>由于同一个事物只会产生一个共用Read View，所以可重复读的隔离级别下第二步只产生了两个Read View</p>
+<p>上述案例在<strong>可重复读(Repeatable read)，【每一次查询都会产生一个新的Read View副本】</strong>。所以第二步实际上产生了三个Read View</p>
+<table>
+<thead>
+<tr>
+<th align="left"></th>
+<th align="left">m_ids</th>
+<th align="left">m_low_limit_id</th>
+<th align="left">m_up_limit_id</th>
+<th align="left">creator_trx_id</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">事务A：Read View</td>
+<td align="left">[20,30]</td>
+<td align="left">20</td>
+<td align="left">31</td>
+<td align="left">20</td>
+</tr>
+<tr>
+<td align="left">事务B：Read View</td>
+<td align="left">[20,30]</td>
+<td align="left">20</td>
+<td align="left">31</td>
+<td align="left">30</td>
+</tr>
+</tbody></table>
+<p>通过可见性判断：</p>
+<ul>
+<li><p><strong>事务A第一次查询时</strong></p>
+<p>日志事务Id【DB_TRX_ID = 10】 &lt; 最小活跃事务ID【m_low_limit_id=20】，因此可以读取到DB_TRX_ID = 10这条版本链中的数据。即name = 星河之码。</p>
+</li>
+<li><p><strong>事务A第二次查询时</strong></p>
+<p>此时事务B已经提交，版本链中最新版本为DB_TRX_ID = 30，而可见性规则中虽然满足</p>
+<p>【m_low_limit_id=20】=&lt;【DB_TRX_ID=30】&lt;【m_up_limit_id=20】并且【DB_TRX_ID=30】也在m_ids集合[20，30]中，但是【DB_TRX_ID=30】不等于事物A的【creator_trx_id=20】，说明<strong>DB_TRX_ID=30是同一时刻其他事物提交的，事物A不能读取到</strong>，因此事物A只能按照版本链继续往上找，最终读取到【DB_TRX_ID=10】的数据，即name = 星河之码。</p>
+</li>
+</ul>
+<p><strong>案例总结</strong>：</p>
+<p>通过上述案例说明，<strong>同一个事务A的两个相同查询，结果都为星河之码，因此在可重复读（RR）隔离级别下，解决了不可重复读并发问题</strong>。</p>
+<blockquote>
+<p>其实读已经提交与可重复读的可见性判断的区别就在于事务A第二次查询时使用的Read View不通。</p>
+<p>此处也就解答了2.6.3中【第五步】的问题一中的第二种情况：可重复读（RR）隔离级别：读取到是原始数据提交的星河之码。同样也解释了【第七步】，为什么能读取到的是DB_TRX_ID=10得数据name=星河之码。</p>
+</blockquote>
+</div><div class="article-licensing box"><div class="licensing-title"><p>MySQL(八)：读懂MVCC多版本并发控制</p><p><a href="http://ityouknow.cn/2021/08/06/MySQL%E5%85%AB%EF%BC%9A%E8%AF%BB%E6%87%82MVCC%E5%A4%9A%E7%89%88%E6%9C%AC%E5%B9%B6%E5%8F%91%E6%8E%A7%E5%88%B6/">http://ityouknow.cn/2021/08/06/MySQL%E5%85%AB%EF%BC%9A%E8%AF%BB%E6%87%82MVCC%E5%A4%9A%E7%89%88%E6%9C%AC%E5%B9%B6%E5%8F%91%E6%8E%A7%E5%88%B6/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>作者</h6><p>yunlongn</p></div></div><div class="level-item is-narrow"><div><h6>发布于</h6><p>2021-08-06</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2025-12-19</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icon" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a><a class="icon" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a><a class="icon" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/Mysql/">Mysql</a></div><div class="bdsharebuttonbox"><a class="bds_more" href="#" data-cmd="more"></a><a class="bds_qzone" href="#" data-cmd="qzone" title="分享到QQ空间"></a><a class="bds_tsina" href="#" data-cmd="tsina" title="分享到新浪微博"></a><a class="bds_tqq" href="#" data-cmd="tqq" title="分享到腾讯微博"></a><a class="bds_renren" href="#" data-cmd="renren" title="分享到人人网"></a><a class="bds_weixin" href="#" data-cmd="weixin" title="分享到微信"></a></div><script>window._bd_share_config = { "common": { "bdSnsKey": {}, "bdText": "", "bdMini": "2", "bdPic": "", "bdStyle": "0", "bdSize": "16" }, "share": {} }; with (document) 0[(getElementsByTagName('head')[0] || body).appendChild(createElement('script')).src = 'http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion=' + ~(-new Date() / 36e5)];</script></article></div><div class="card"><div class="card-content"><h3 class="menu-label has-text-centered">喜欢这篇文章？打赏一下作者吧</h3><div class="buttons is-centered"><a class="button donate" data-type="alipay"><span class="icon is-small"><i class="fab fa-alipay"></i></span><span>支付宝</span><span class="qrcode"><img src="/" alt="支付宝"></span></a><a class="button donate" href="/" target="_blank" rel="noopener" data-type="buymeacoffee"><span class="icon is-small"><i class="fas fa-coffee"></i></span><span>送我杯咖啡</span></a><a class="button donate" data-type="wechat"><span class="icon is-small"><i class="fab fa-weixin"></i></span><span>微信</span><span class="qrcode"><img src="/" alt="微信"></span></a></div></div></div><nav class="post-navigation mt-4 level is-mobile"><div class="level-start"><a class="article-nav-prev level level-item link-muted" href="/2021/08/06/MySQL%E4%B9%9D%EF%BC%9AMVCC%E8%83%BD%E5%90%A6%E8%A7%A3%E5%86%B3%E5%B9%BB%E8%AF%BB%E9%97%AE%E9%A2%98/"><i class="level-item fas fa-chevron-left"></i><span class="level-item">MMySQL(九)：MVCC能否解决幻读问题</span></a></div><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2021/08/06/MySQL%E4%B8%83%EF%BC%9A%E4%B8%80%E6%96%87%E8%AF%A6%E8%A7%A3%E5%85%AD%E5%A4%A7%E6%97%A5%E5%BF%97/"><span class="level-item">MySQL(七)：一文详解六大日志</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div id="comment-container"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.css"><script src="https://cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script><script>var gitalk = new Gitalk({
+            id: "bacd0f463466337ae986e044f98a59c1",
+            repo: "yunlongn.github.io",
+            owner: "yunlongn",
+            clientID: "fb8ffef00dff08ccb06c",
+            clientSecret: "935a05558f847f4321d3c64b4c0c2498697a2bda",
+            admin: "yunlongn",
+            createIssueManually: false,
+            distractionFreeMode: false,
+            perPage: 10,
+            pagerDirection: "last",
+            
+            
+            enableHotKey: true,
+            
+        })
+        gitalk.render('comment-container')</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-3-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar" src="/img/avatar.png" alt="云扬四海"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">云扬四海</p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">77</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">24</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">29</p></a></div></div></nav><div class="level"><a class="level-item button is-primary is-rounded" href="http://github.com/yunlongn" target="_blank" rel="noopener">关注我</a></div><div class="level is-mobile"><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="Github" href="http://github.com/yunlongn"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="cnblogs" href="https://www.cnblogs.com/rolandlee/"><i class="fas fa-book"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="noopener" title="RSS" href="/atom.xml"><i class="fas fa-rss"></i></a></div></div></div><!--!--><div class="card widget" data-type="tagscloud" style="transition: opacity 0.3s ease-out 0s, transform 0.3s ease-out 0s; opacity: 1; transform-origin: center top;"><div class="card-content" id="tags"><h3 class="menu-label">标签云</h3><a href="/tags/JVM/" style="color:rgb(155,124,106);font-size:21px">JVM<span class="tag-cloud-count">(1) </span></a><a href="/tags/Java/" style="color:rgb(160,150,91);font-size:18px">Java<span class="tag-cloud-count">(5) </span></a><a href="/tags/Mysql/" style="color:rgb(181,165,96);font-size:21px">Mysql<span class="tag-cloud-count">(18) </span></a><a href="/tags/Netty/" style="color:rgb(195,161,112);font-size:14px">Netty<span class="tag-cloud-count">(1) </span></a><a href="/tags/Nginx/" style="color:rgb(155,172,154);font-size:16px">Nginx<span class="tag-cloud-count">(1) </span></a><a href="/tags/SpringBoot/" style="color:rgb(194,123,98);font-size:13px">SpringBoot<span class="tag-cloud-count">(2) </span></a><a href="/tags/heroku/" style="color:rgb(170,140,87);font-size:19px">heroku<span class="tag-cloud-count">(1) </span></a><a href="/tags/java/" style="color:rgb(191,119,114);font-size:22px">java<span class="tag-cloud-count">(1) </span></a><a href="/tags/java%E5%9F%BA%E7%A1%80/" style="color:rgb(130,128,104);font-size:20px">java基础<span class="tag-cloud-count">(2) </span></a><a href="/tags/java%E6%A0%B8%E5%BF%83/" style="color:rgb(185,138,115);font-size:20px">java核心<span class="tag-cloud-count">(1) </span></a><a href="/tags/linux/" style="color:rgb(197,113,150);font-size:20px">linux<span class="tag-cloud-count">(1) </span></a><a href="/tags/mq/" style="color:rgb(135,131,111);font-size:20px">mq<span class="tag-cloud-count">(1) </span></a><a href="/tags/mybatisPlus/" style="color:rgb(165,117,114);font-size:17px">mybatisPlus<span class="tag-cloud-count">(1) </span></a><a href="/tags/nio/" style="color:rgb(186,156,98);font-size:16px">nio<span class="tag-cloud-count">(1) </span></a><a href="/tags/servlet/" style="color:rgb(138,133,85);font-size:13px">servlet<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BA%8B%E5%8A%A1/" style="color:rgb(174,123,153);font-size:20px">事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E4%BF%A1%E5%8F%B7%E9%87%8F/" style="color:rgb(167,144,133);font-size:20px">信号量<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" style="color:rgb(143,170,91);font-size:21px">分布式事务<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9B%BE%E7%89%87%E8%AF%86%E5%88%AB/" style="color:rgb(158,122,112);font-size:20px">图片识别<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%9F%BA%E6%9C%AC%E5%91%BD%E4%BB%A4/" style="color:rgb(166,158,92);font-size:19px">基本命令<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/" style="color:rgb(182,145,121);font-size:20px">小程序<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E5%B7%A5%E5%85%B7/" style="color:rgb(175,157,109);font-size:18px">工具<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%80%A7%E8%83%BD/" style="color:rgb(193,157,109);font-size:13px">性能<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E6%8A%80%E5%B7%A7/" style="color:rgb(182,154,107);font-size:19px">技巧<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E7%AD%BE%E5%90%8D/" style="color:rgb(146,106,142);font-size:13px">签名<span class="tag-cloud-count">(2) </span></a><a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="color:rgb(169,106,122);font-size:18px">设计模式<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/" style="color:rgb(157,113,142);font-size:21px">读书笔记<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%98%B2%E7%9B%97%E9%93%BE/" style="color:rgb(189,145,113);font-size:16px">防盗链<span class="tag-cloud-count">(1) </span></a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="color:rgb(134,127,147);font-size:19px">面试<span class="tag-cloud-count">(1) </span></a></div></div><div class="card widget" data-type="links"><div class="card-content"><div class="menu"><h3 class="menu-label">链接</h3><ul class="menu-list"><li><a class="level is-mobile" href="http://www.ityouknow.com" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">纯洁的微笑</span></span><span class="level-right"><span class="level-item tag">www.ityouknow.com</span></span></a></li><li><a class="level is-mobile" href="https://blog.52itstyle.vip/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">柒&#039;s</span></span><span class="level-right"><span class="level-item tag">blog.52itstyle.vip</span></span></a></li><li><a class="level is-mobile" href="https://www.wdk.pw/" target="_blank" rel="noopener"><span class="level-left"><span class="level-item">王登科</span></span><span class="level-right"><span class="level-item tag">www.wdk.pw</span></span></a></li></ul></div></div></div></div><!--!--></div></div></section><embed src="/img/footer.svg" id="galinv" type="image/svg+xml"><footer class="footer"><div class="footer-image"><img src="/img/o_cnblogs_footer.png" width="60%"></div><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/">云扬四海</a><p class="is-size-7"><span>&copy; 2025 yunlongn</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a><br><span id="busuanzi_container_site_uv">共<span id="busuanzi_value_site_uv">0</span>个访客</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/yunlongn"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" async></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
