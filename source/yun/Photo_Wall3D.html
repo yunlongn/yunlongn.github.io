@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <title>COSMIC STREAM | AUTO-PILOT</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>COSMIC STREAM | EXPANDED EDITION</title>
     <style>
         /* --- 基础样式 --- */
         body {
@@ -12,12 +12,14 @@
             color: #fff;
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             overflow: hidden;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
-        /* --- 菜单样式 --- */
+        /* --- 菜单样式 (容器) --- */
         #menu {
             position: absolute;
-            bottom: 40px;
+            bottom: 30px;
             width: 100%;
             text-align: center;
             z-index: 100;
@@ -28,38 +30,55 @@
             pointer-events: none;
             opacity: 0;
             animation: fadeIn 2s ease-out 0.5s forwards;
+            padding-bottom: env(safe-area-inset-bottom);
+            flex-wrap: wrap;
         }
 
         @keyframes fadeIn { to { opacity: 1; } }
 
-        .btn {
+        /* --- 自定义下拉菜单样式 --- */
+        .select-wrapper {
+            position: relative;
             pointer-events: auto;
-            background: rgba(0, 0, 0, 0.4);
+        }
+
+        select.custom-select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: rgba(255, 255, 255, 0.7);
-            padding: 10px 24px;
-            cursor: pointer;
-            text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 2px;
-            border-radius: 30px;
-            transition: all 0.3s;
-        }
-
-        .btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-            color: #fff;
-            transform: scale(1.05);
-            border-color: rgba(255, 255, 255, 0.4);
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
-        }
-
-        .btn.active {
-            background: rgba(0, 255, 255, 0.1);
-            border-color: #00ffff;
+            border: 1px solid rgba(0, 255, 255, 0.3);
             color: #00ffff;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.15);
+            padding: 10px 40px 10px 20px;
+            font-size: 14px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border-radius: 30px;
+            cursor: pointer;
+            outline: none;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+            transition: all 0.3s;
+            min-width: 160px;
+            text-align: center;
+        }
+
+        select.custom-select:focus {
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            border-color: #00ffff;
+            background: rgba(0, 20, 20, 0.8);
+        }
+
+        .select-wrapper::after {
+            content: '';
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid #00ffff;
+            pointer-events: none;
         }
 
         /* --- 开关样式 --- */
@@ -68,24 +87,24 @@
             display: flex;
             align-items: center;
             background: rgba(0, 0, 0, 0.6);
-            padding: 6px 16px;
+            padding: 8px 16px;
             border-radius: 30px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            margin-left: 15px;
+            backdrop-filter: blur(10px);
         }
 
-        .toggle-label { font-size: 11px; letter-spacing: 1px; margin-right: 8px; color: #888; text-transform: uppercase; }
-        .switch { position: relative; display: inline-block; width: 36px; height: 18px; }
+        .toggle-label { font-size: 12px; letter-spacing: 1px; margin-right: 10px; color: #aaa; text-transform: uppercase; }
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 20px; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: #888; transition: .4s; border-radius: 50%; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: #888; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #003333; border: 1px solid #00ffff; }
-        input:checked + .slider:before { transform: translateX(18px); background-color: #00ffff; box-shadow: 0 0 10px #00ffff; }
+        input:checked + .slider:before { transform: translateX(20px); background-color: #00ffff; box-shadow: 0 0 10px #00ffff; }
 
-        /* 标题 */
+        /* --- 标题 --- */
         #title {
             position: absolute;
-            top: 40px;
+            top: 30px;
             width: 100%;
             text-align: center;
             pointer-events: none;
@@ -95,11 +114,20 @@
         }
         h1 {
             font-weight: 200;
-            letter-spacing: 12px;
+            letter-spacing: 8px;
             font-size: 18px;
             color: #fff;
             margin: 0;
             text-shadow: 0 0 15px rgba(0,255,255,0.3);
+        }
+
+        /* --- 移动端适配 --- */
+        @media (max-width: 768px) {
+            h1 { font-size: 14px; letter-spacing: 4px; }
+            #menu { bottom: 20px; gap: 10px; }
+            select.custom-select { font-size: 12px; padding: 8px 30px 8px 15px; min-width: 120px; }
+            .toggle-wrapper { padding: 6px 12px; }
+            .toggle-label { font-size: 10px; }
         }
     </style>
 </head>
@@ -112,10 +140,17 @@
 <div id="container"></div>
 
 <div id="menu">
-    <button id="table" class="btn">矩阵 GRID</button>
-    <button id="sphere" class="btn">星球 SPHERE</button>
-    <button id="helix" class="btn active">螺旋 HELIX</button>
-    <button id="grid" class="btn">混沌 CHAOS</button>
+    <div class="select-wrapper">
+        <select id="layoutSelect" class="custom-select">
+            <option value="helix" selected>螺旋 HELIX</option>
+            <option value="table">矩阵 GRID</option>
+            <option value="sphere">星球 SPHERE</option>
+            <option value="grid">混沌 CHAOS</option>
+            <option value="torus">圆环 TORUS</option>
+            <option value="cone">圆锥 CONE</option>
+            <option value="doubleHelix">双链 DNA</option>
+        </select>
+    </div>
 
     <div class="toggle-wrapper">
         <span class="toggle-label">Auto Load</span>
@@ -146,110 +181,107 @@
     let raycaster, mouse;
 
     const objects = [];
-    const targets = { table: [], sphere: [], helix: [], grid: [] };
+    // 初始化包含新形态的目标数组
+    const targets = {
+        table: [],
+        sphere: [],
+        helix: [],
+        grid: [],
+        torus: [],
+        cone: [],
+        doubleHelix: []
+    };
+
     let currentLayout = 'helix';
     let totalImages = 0;
 
     // --- 状态控制 ---
     let isInfiniteActive = false;
-    let autoLoadInterval = null; // 定时器句柄
-
+    let autoLoadInterval = null;
+    let mouseDownPos = new THREE.Vector2(); // 新增：用于记录按下时的坐标
     init();
     animate();
 
     function init() {
         const container = document.getElementById('container');
 
-        // 1. 相机
-        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
+        const fov = window.innerWidth < 768 ? 60 : 45;
+        camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 1, 10000);
         camera.position.z = 2500;
 
-        // 2. 场景
         scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x000000, 0.00025);
 
         createStarField();
 
-        // 3. 渲染器
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
         container.appendChild(renderer.domElement);
 
-        // 4. 控制器
         controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         controls.autoRotate = true;
         controls.autoRotateSpeed = 0.8;
 
-        // 5. 交互事件
+        // --- 修改：开启右键平移 (实现上下移动视角) ---
+        controls.enablePan = true;           // 允许右键拖拽
+        controls.screenSpacePanning = true;  // true = 鼠标上下拖对应视角垂直升降
+        controls.panSpeed = 1.5;             // 调整移动灵敏度
+
         raycaster = new THREE.Raycaster();
         mouse = new THREE.Vector2();
         window.addEventListener('resize', onWindowResize);
-        window.addEventListener('click', onMouseClick);
 
-        // 6. 初始化菜单与本地存储
+        const rendererDom = renderer.domElement;
+        rendererDom.addEventListener('click', onMouseClick);
+        rendererDom.addEventListener('touchstart', onTouchStart, {passive: false});
+
+        rendererDom.addEventListener('mousedown', (event) => {
+            mouseDownPos.set(event.clientX, event.clientY);
+        });
         initMenuSystem();
-
-        // 7. 初始加载
-        addImages(40);
+        addImages(100);
     }
 
-    // --- 菜单与逻辑系统 ---
+    let touchStartTime = 0;
+    function onTouchStart() {
+        touchStartTime = performance.now();
+    }
+
     function initMenuSystem() {
-        const buttons = {
-            table: document.getElementById('table'),
-            sphere: document.getElementById('sphere'),
-            helix: document.getElementById('helix'),
-            grid: document.getElementById('grid')
-        };
+        const layoutSelect = document.getElementById('layoutSelect');
 
-        const updateActiveBtn = (id) => {
-            Object.values(buttons).forEach(b => b.classList.remove('active'));
-            buttons[id].classList.add('active');
-            currentLayout = id;
-        };
-
-        Object.keys(buttons).forEach(key => {
-            buttons[key].addEventListener('click', () => {
-                transform(targets[key], 1500);
-                updateActiveBtn(key);
-                resetCamera();
-            });
+        layoutSelect.addEventListener('change', (event) => {
+            const selectedLayout = event.target.value;
+            transform(targets[selectedLayout], 1500);
+            currentLayout = selectedLayout;
+            resetCamera();
         });
 
-        // --- 自动加载控制逻辑 ---
         const toggleInput = document.getElementById('infiniteToggle');
-
-        // 读取本地缓存
         const savedState = localStorage.getItem('cosmic_infinite_mode');
 
-        // 默认逻辑：如果没存过，默认开启(true)，存过则读取
         if (savedState === null) {
             isInfiniteActive = true;
         } else {
             isInfiniteActive = (savedState === 'true');
         }
 
-        // 同步UI和状态
         toggleInput.checked = isInfiniteActive;
-        manageAutoLoader(); // 根据状态启动或停止定时器
+        manageAutoLoader();
 
         toggleInput.addEventListener('change', (e) => {
             isInfiniteActive = e.target.checked;
             localStorage.setItem('cosmic_infinite_mode', isInfiniteActive);
-            manageAutoLoader(); // 状态改变时更新定时器
+            manageAutoLoader();
         });
     }
 
-    // --- 核心：定时器管理 ---
     function manageAutoLoader() {
-        // 先清除旧的，防止叠加
         if (autoLoadInterval) clearInterval(autoLoadInterval);
-
         if (isInfiniteActive) {
-            // 每 4 秒自动加载 5 张
             autoLoadInterval = setInterval(() => {
                 addImages(5);
             }, 4000);
@@ -263,14 +295,13 @@
 
         for (let i = 0; i < count; i++) {
             const actualIndex = startIndex + i;
-            // 随机参数
             const url = `https://picsum.photos/seed/${actualIndex + performance.now()}/300/200`;
 
             const material = new THREE.MeshBasicMaterial({
                 color: 0xffffff,
                 side: THREE.DoubleSide,
                 transparent: true,
-                opacity: 0 // 初始不可见
+                opacity: 0
             });
 
             const object = new THREE.Mesh(geometry, material);
@@ -289,7 +320,6 @@
 
             calculateTargetsForObject(actualIndex, objects.length - 1);
 
-            // 飞入位置
             const target = targets[currentLayout][objects.length - 1];
             if(target) {
                 new TWEEN.Tween(object.position)
@@ -300,7 +330,6 @@
                     .easing(TWEEN.Easing.Exponential.Out).start();
             }
 
-            // 静默加载纹理
             loader.load(url, (texture) => {
                 material.map = texture;
                 material.needsUpdate = true;
@@ -310,22 +339,38 @@
         totalImages += count;
     }
 
-    // --- 点击交互 ---
     function onMouseClick(event) {
+        if (event.type === 'touchend' && performance.now() - touchStartTime > 200) return;
         if (event.target.closest('#menu')) return;
 
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        let clientX, clientY;
+        if (event.changedTouches && event.changedTouches.length > 0) {
+            clientX = event.changedTouches[0].clientX;
+            clientY = event.changedTouches[0].clientY;
+        } else {
+            clientX = event.clientX;
+            clientY = event.clientY;
+
+            // --- 新增判断逻辑 START ---
+            // 计算鼠标移动距离
+            const dx = clientX - mouseDownPos.x;
+            const dy = clientY - mouseDownPos.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // 如果移动距离超过 5px，认为是拖拽操作，不触发点击事件
+            if (distance > 5) return;
+            // --- 新增判断逻辑 END ---
+        }
+
+        // ... 以下保持原有代码不变 ...
+        mouse.x = (clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(objects);
 
         if (intersects.length > 0) {
-            // 1. 聚焦
             focusOnObject(intersects[0].object);
-
-            // 2. 点击触发额外加载 (如果是开启状态)
             if (isInfiniteActive) {
-                // 点击时额外来一批，增加互动爽感
                 addImages(10);
             }
         } else {
@@ -335,13 +380,13 @@
 
     function focusOnObject(targetObject) {
         controls.autoRotate = false;
-
         const targetPos = new THREE.Vector3();
         targetObject.getWorldPosition(targetPos);
         const objectNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(targetObject.quaternion);
         const objectUp = new THREE.Vector3(0, 1, 0).applyQuaternion(targetObject.quaternion);
 
-        const newCamPos = targetPos.clone().add(objectNormal.multiplyScalar(350));
+        const dist = window.innerWidth < 768 ? 280 : 350;
+        const newCamPos = targetPos.clone().add(objectNormal.multiplyScalar(dist));
 
         new TWEEN.Tween(camera.position).to({ x: newCamPos.x, y: newCamPos.y, z: newCamPos.z }, 1200).easing(TWEEN.Easing.Cubic.Out).start();
         new TWEEN.Tween(controls.target).to({ x: targetPos.x, y: targetPos.y, z: targetPos.z }, 1200).easing(TWEEN.Easing.Cubic.Out).start();
@@ -349,6 +394,7 @@
     }
 
     function resetCamera() {
+        console.log("xx")
         const resetPos = new THREE.Vector3(0, 0, 2500);
         new TWEEN.Tween(camera.position).to({ x: resetPos.x, y: resetPos.y, z: resetPos.z }, 1500).easing(TWEEN.Easing.Exponential.Out).start();
         new TWEEN.Tween(controls.target).to({ x: 0, y: 0, z: 0 }, 1500).easing(TWEEN.Easing.Exponential.Out).start();
@@ -357,16 +403,17 @@
     }
 
     function calculateTargetsForObject(i, arrayIndex) {
-        // Table
+        const vector = new THREE.Vector3();
+
+        // 1. Table
         const objectTable = new THREE.Object3D();
         objectTable.position.x = ((i % 10) * 160) - 700;
         objectTable.position.y = -(Math.floor(i / 10) * 120) + 600;
         objectTable.position.z = -Math.floor(i / 100) * 1000;
         targets.table[arrayIndex] = objectTable;
 
-        // Sphere
+        // 2. Sphere
         const objectSphere = new THREE.Object3D();
-        const vector = new THREE.Vector3();
         const layer = Math.floor(i / 150);
         const radius = 800 + (layer * 400);
         const phi = Math.acos(-1 + (2 * (i % 150)) / 150);
@@ -376,7 +423,7 @@
         objectSphere.lookAt(vector);
         targets.sphere[arrayIndex] = objectSphere;
 
-        // Helix
+        // 3. Helix
         const objectHelix = new THREE.Object3D();
         const hTheta = i * 0.175 + Math.PI;
         const hY = -(i * 12) + 600;
@@ -385,13 +432,61 @@
         objectHelix.lookAt(vector);
         targets.helix[arrayIndex] = objectHelix;
 
-        // Grid
+        // 4. Grid
         const objectGrid = new THREE.Object3D();
         objectGrid.position.x = Math.random() * 5000 - 2500;
         objectGrid.position.y = Math.random() * 5000 - 2500;
         objectGrid.position.z = Math.random() * 5000 - 2500;
         objectGrid.rotation.set(Math.random()*6, Math.random()*6, Math.random()*6);
         targets.grid[arrayIndex] = objectGrid;
+        
+        // 5. Torus (圆环) - 已优化稀疏度
+        const objectTorus = new THREE.Object3D();
+        // 1. 扩大整体圆环半径 (原1200 -> 1800)
+        const torusRadius = 1800;
+        // 2. 扩大管道粗细 (原350 -> 600)，让图片在截面上更分散
+        const tubeRadius = 600;
+        const radialCount = 30;
+        const angleTube = (i % radialCount) / radialCount * Math.PI * 2;
+        // 3. 增大圆环展开的步进系数 (原 i*0.02 -> i*0.05)，拉大图片沿环的间距
+        const angleRing = Math.floor(i / radialCount) * 0.2 + (i * 0.05);
+
+        objectTorus.position.x = (torusRadius + tubeRadius * Math.cos(angleTube)) * Math.cos(angleRing);
+        objectTorus.position.z = (torusRadius + tubeRadius * Math.cos(angleTube)) * Math.sin(angleRing);
+        objectTorus.position.y = tubeRadius * Math.sin(angleTube);
+        vector.copy(objectTorus.position).multiplyScalar(2);
+        objectTorus.lookAt(vector);
+        targets.torus[arrayIndex] = objectTorus;
+
+        // 6. Cone (圆锥) - 已优化稀疏度
+        const objectCone = new THREE.Object3D();
+        // 1. 显著增加垂直间距 (原15 -> 60)，这是解决密集的关键
+        const coneY = -(i * 60) + 2000;
+        // 2. 调整半径扩散系数，避免底部过于巨大
+        const coneRadius = 200 + Math.abs(coneY) * 0.6;
+        // 3. 增加旋转角度步进 (原0.3 -> 0.5)，避免图片上下重叠
+        const coneTheta = i * 0.5 + Math.PI;
+
+        objectCone.position.setFromCylindricalCoords(coneRadius, coneTheta, coneY);
+        vector.x = objectCone.position.x * 2;
+        vector.y = objectCone.position.y;
+        vector.z = objectCone.position.z * 2;
+        objectCone.lookAt(vector);
+        targets.cone[arrayIndex] = objectCone;
+
+        // 7. Double Helix (双螺旋)
+        const objectDNA = new THREE.Object3D();
+        const isStrandB = i % 2 === 0;
+        const dnaTheta = (i * 0.1) + (isStrandB ? Math.PI : 0);
+        const dnaY = -(i * 10) + 800;
+        const dnaRadius = 900;
+        objectDNA.position.setFromCylindricalCoords(dnaRadius, dnaTheta, dnaY);
+        vector.x = objectDNA.position.x * 2;
+        vector.y = objectDNA.position.y;
+        vector.z = objectDNA.position.z * 2;
+        objectDNA.lookAt(vector);
+        objectDNA.rotation.z += Math.random() * 0.2 - 0.1;
+        targets.doubleHelix[arrayIndex] = objectDNA;
     }
 
     function createStarField() {
@@ -425,6 +520,8 @@
     }
 
     function onWindowResize() {
+        const fov = window.innerWidth < 768 ? 60 : 45;
+        camera.fov = fov;
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
